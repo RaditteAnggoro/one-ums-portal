@@ -1,0 +1,4 @@
+interface:
+  display_name: "Systematic Debugging"
+  short_description: "Reproduce failures and test the root cause"
+  default_prompt: "Use $systematic-debugging to investigate this failure and fix it with a regression check."

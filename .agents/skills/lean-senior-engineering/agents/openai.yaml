@@ -1,0 +1,4 @@
+interface:
+  display_name: "Lean Senior Engineering"
+  short_description: "Small, complete changes and focused reviews"
+  default_prompt: "Use $lean-senior-engineering to implement this change using existing patterns and relevant checks."

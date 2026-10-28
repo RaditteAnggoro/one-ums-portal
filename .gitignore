@@ -1,0 +1,16 @@
+node_modules/
+.pnpm-store/
+.next/
+dist/
+.data/
+.runtime/
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+.DS_Store
+coverage/
+test-results/
+playwright-report/
+# Local agent evidence contains machine paths, screenshots, and browser traces.
+.agents/artifacts/

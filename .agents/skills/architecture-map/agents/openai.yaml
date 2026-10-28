@@ -1,0 +1,4 @@
+interface:
+  display_name: "Architecture Map"
+  short_description: "Trace code and data flows with source evidence"
+  default_prompt: "Use $architecture-map to trace this flow and produce a diagram linked to the actual code."

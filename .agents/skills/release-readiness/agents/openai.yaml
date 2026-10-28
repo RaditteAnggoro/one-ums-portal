@@ -1,0 +1,4 @@
+interface:
+  display_name: "Release Readiness"
+  short_description: "Assess release checks, rollout, and recovery gaps"
+  default_prompt: "Use $release-readiness to assess these changes and report release blockers and unverified checks."

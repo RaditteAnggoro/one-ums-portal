@@ -1,0 +1,4 @@
+interface:
+  display_name: "Research, Plan, Implement"
+  short_description: "Carry substantial changes across modules or sessions"
+  default_prompt: "Use $research-plan-implement to research this change, maintain a local plan, and implement it."

@@ -1,0 +1,5 @@
+allowBuilds:
+  "@embedded-postgres/darwin-arm64": true
+  "@nestjs/core": false
+  esbuild: true
+  msgpackr-extract: true
