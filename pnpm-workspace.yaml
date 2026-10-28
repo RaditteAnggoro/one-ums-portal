@@ -1,5 +1,7 @@
+# Reviewed install scripts for pinned build dependencies.
 allowBuilds:
-  "@embedded-postgres/darwin-arm64": true
-  "@nestjs/core": false
   esbuild: true
-  msgpackr-extract: true
+  "@embedded-postgres/darwin-arm64": true
+  "@embedded-postgres/linux-arm64": true
+  "@embedded-postgres/linux-x64": true
+  msgpackr-extract: false

@@ -1,7 +1,7 @@
 import "reflect-metadata";
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
 import type { INestApplication } from "@nestjs/common";
-import { randomUUID } from "node:crypto";
+import { createECDH, randomBytes, randomUUID } from "node:crypto";
 import { createApp } from "../apps/api/src/main.js";
 import { pool, transaction } from "../apps/api/src/db.js";
 import { passwordHash } from "../apps/api/src/security.js";
@@ -13,6 +13,11 @@ import {
 } from "../apps/api/src/queue.js";
 import { schedulerTick } from "../apps/api/src/campaigns.js";
 import sharp from "sharp";
+import {
+  dispatchPushBatch,
+  enqueuePushNotifications,
+} from "../apps/api/src/push.js";
+import { decryptSecret } from "../apps/api/src/secrets.js";
 
 let app: INestApplication;
 let base: string;
@@ -178,7 +183,11 @@ async function request(
   return {
     status: res.status,
     body: await res.json(),
-    cookie: res.headers.get("set-cookie")?.split(";")[0],
+    cookie:
+      res.headers
+        .getSetCookie()
+        .map((value) => value.split(";")[0])
+        .join("; ") || undefined,
   };
 }
 async function login(f: any, role: string) {
@@ -252,6 +261,9 @@ beforeAll(async () => {
 afterAll(async () => {
   await stopWorkers?.();
   await app.close();
+  await pool.query("DELETE FROM audit WHERE company_id=ANY($1::uuid[])", [
+    fixtures.map((f) => f.company),
+  ]);
   for (const f of fixtures)
     await transaction(async (db) => {
       await db.query(
@@ -271,6 +283,8 @@ afterAll(async () => {
         [f.company],
       );
       for (const table of [
+        "push_deliveries",
+        "push_subscriptions",
         "ledger",
         "message_events",
         "attempts",
@@ -297,6 +311,10 @@ afterAll(async () => {
         "DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE company_id=$1)",
         [f.company],
       );
+      await db.query(
+        "DELETE FROM platform_administrators WHERE user_id IN (SELECT id FROM users WHERE company_id=$1)",
+        [f.company],
+      );
       for (const table of ["users", "roles", "teams"])
         await db.query(`DELETE FROM ${table} WHERE company_id=$1`, [f.company]);
       await db.query("DELETE FROM companies WHERE id=$1", [f.company]);
@@ -314,6 +332,370 @@ describe("real PostgreSQL application boundaries", () => {
     for (const role of ["creator", "approver", "finance", "admin", "outsider"])
       await login(f, role);
     await login(other, "admin");
+  });
+  it("restricts platform onboarding and provisions an isolated company without leaking credentials", async () => {
+    expect(
+      (await request("platform/companies", "GET", undefined, f.cookies.admin))
+        .status,
+    ).toBe(403);
+    await pool.query(
+      "INSERT INTO platform_administrators(user_id) VALUES($1)",
+      [f.users.admin.id],
+    );
+    const email = `owner-${randomUUID()}@example.test`;
+    const input = {
+      name: "Onboarding verification",
+      timezone: "Asia/Jakarta",
+      language: "en",
+      adminName: "Owner",
+      adminEmail: email,
+      adminPassword: "OnboardingPassword123!",
+      teamName: "Operations",
+      costCentreName: "General",
+    };
+    expect(
+      (
+        await request(
+          "platform/companies",
+          "POST",
+          { ...input, timezone: "Invalid/Zone" },
+          f.cookies.admin,
+        )
+      ).status,
+    ).toBe(400);
+    const made = await request(
+      "platform/companies",
+      "POST",
+      input,
+      f.cookies.admin,
+    );
+    expect(made.status).toBe(201);
+    fixtures.push({ company: made.body.id });
+    expect(JSON.stringify(made.body)).not.toContain(input.adminPassword);
+    const owner = await request("auth/login", "POST", {
+      email,
+      password: input.adminPassword,
+    });
+    expect(owner.status).toBe(201);
+    expect(
+      (await request("platform/companies", "GET", undefined, owner.cookie))
+        .status,
+    ).toBe(403);
+    expect(
+      (await request("bootstrap", "GET", undefined, owner.cookie)).body.user
+        .profile.locale,
+    ).toBe("en");
+    const b = (
+      await pool.query(
+        "SELECT allocated,reserved,spent FROM budgets WHERE company_id=$1",
+        [made.body.id],
+      )
+    ).rows[0];
+    expect(b).toEqual({
+      allocated: "0.0000",
+      reserved: "0.0000",
+      spent: "0.0000",
+    });
+    expect(
+      (
+        await pool.query(
+          "SELECT stages FROM approval_policies WHERE company_id=$1",
+          [made.body.id],
+        )
+      ).rows[0].stages,
+    ).toHaveLength(2);
+    expect(
+      (await request("bootstrap", "GET", undefined, f.cookies.admin)).body.user
+        .company_id,
+    ).toBe(f.company);
+    const logs = (
+      await pool.query(
+        "SELECT detail FROM audit WHERE company_id=$1 OR resource_id=$1::text",
+        [made.body.id],
+      )
+    ).rows;
+    expect(JSON.stringify(logs)).not.toContain(input.adminPassword);
+  });
+  it("persists validated language separately from profile and scopes mark-all-read", async () => {
+    expect(
+      (
+        await request(
+          "profile/language",
+          "PUT",
+          { locale: "fr" },
+          f.cookies.creator,
+        )
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await request(
+          "profile/language",
+          "PUT",
+          { locale: "en" },
+          f.cookies.creator,
+        )
+      ).status,
+    ).toBe(200);
+    expect(
+      (await request("bootstrap", "GET", undefined, f.cookies.creator)).body
+        .user.profile.locale,
+    ).toBe("en");
+    const n = (
+      await pool.query(
+        "INSERT INTO notifications(company_id,team_id,title,body,resource_id) VALUES($1,$2,'Test','Test',$3) RETURNING id",
+        [other.company, other.team, other.users.admin.id],
+      )
+    ).rows[0];
+    expect(
+      (await request("notifications/read-all", "POST", {}, f.cookies.creator))
+        .status,
+    ).toBe(201);
+    expect(
+      (
+        await pool.query("SELECT read_by FROM notifications WHERE id=$1", [
+          n.id,
+        ])
+      ).rows[0].read_by,
+    ).not.toContain(f.users.creator.id);
+  });
+  it("encrypts browser subscriptions, isolates delivery receipts and cancels revoked devices", async () => {
+    const old = { ...process.env };
+    process.env.PUSH_ENABLED = "true";
+    process.env.VAPID_PUBLIC_KEY = "test";
+    process.env.VAPID_PRIVATE_KEY = "test";
+    process.env.VAPID_SUBJECT = "mailto:test@example.test";
+    try {
+      const ecdh = createECDH("prime256v1");
+      ecdh.generateKeys();
+      const payload = {
+        endpoint: `https://fcm.googleapis.com/fcm/send/${randomUUID()}`,
+        keys: {
+          auth: randomBytes(16).toString("base64url"),
+          p256dh: ecdh.getPublicKey().toString("base64url"),
+        },
+      };
+      expect(
+        (
+          await request(
+            "push/subscribe",
+            "POST",
+            { ...payload, endpoint: "http://127.0.0.1/push" },
+            f.cookies.creator,
+          )
+        ).status,
+      ).toBe(400);
+      const sub = await request(
+        "push/subscribe",
+        "POST",
+        payload,
+        f.cookies.creator,
+      );
+      expect(sub.status).toBe(201);
+      expect(
+        (await request("push/subscribe", "POST", payload, f.cookies.creator))
+          .body.id,
+      ).toBe(sub.body.id);
+      const cipher = (
+        await pool.query(
+          "SELECT credentials_cipher FROM push_subscriptions WHERE id=$1",
+          [sub.body.id],
+        )
+      ).rows[0].credentials_cipher;
+      expect(cipher).not.toContain(payload.endpoint);
+      expect(cipher).not.toContain(payload.keys.auth);
+      expect(
+        (
+          await request(
+            `push/subscriptions/${sub.body.id}/revoke`,
+            "POST",
+            {},
+            other.cookies.admin,
+          )
+        ).status,
+      ).toBe(404);
+      const test = await request("push/test", "POST", {}, f.cookies.creator);
+      expect(test.status).toBe(201);
+      expect(
+        (await request("push/test", "POST", {}, f.cookies.creator)).status,
+      ).toBe(400);
+      const job = (
+        await pool.query(
+          "SELECT * FROM push_deliveries WHERE notification_id=$1",
+          [test.body.id],
+        )
+      ).rows[0];
+      const token = decryptSecret(job.receipt_cipher).token;
+      const get = (cookie: string, secret = token) =>
+        request(`push/deliveries/${job.id}`, "GET", undefined, cookie, true, {
+          "X-Push-Token": secret,
+        });
+      expect((await get(other.cookies.admin)).status).toBe(404);
+      expect((await get(f.cookies.creator, "wrong")).status).toBe(404);
+      expect((await get(f.cookies.creator)).body.title).toBe(
+        "Test notification",
+      );
+      let calls = 0;
+      await dispatchPushBatch(async (_subscription, _body) => {
+        calls++;
+        return { statusCode: 201, body: "", headers: {} };
+      });
+      expect(calls).toBe(1);
+      expect(
+        (
+          await pool.query("SELECT status FROM push_deliveries WHERE id=$1", [
+            job.id,
+          ])
+        ).rows[0].status,
+      ).toBe("ACCEPTED");
+      expect(
+        (
+          await request(
+            `push/deliveries/${job.id}/receipt`,
+            "POST",
+            { token },
+            other.cookies.admin,
+          )
+        ).status,
+      ).toBe(404);
+      expect(
+        (
+          await request(
+            `push/deliveries/${job.id}/receipt`,
+            "POST",
+            { token },
+            f.cookies.creator,
+          )
+        ).status,
+      ).toBe(201);
+      expect(
+        (
+          await pool.query("SELECT status FROM push_deliveries WHERE id=$1", [
+            job.id,
+          ])
+        ).rows[0].status,
+      ).toBe("DISPLAYED");
+      await pool.query(
+        "INSERT INTO notifications(company_id,team_id,title,body,resource_id,event_key) VALUES($1,$2,'New','New',$3,$4)",
+        [f.company, f.team, f.users.creator.id, `run:${randomUUID()}`],
+      );
+      await enqueuePushNotifications();
+      await request(
+        `push/subscriptions/${sub.body.id}/revoke`,
+        "POST",
+        {},
+        f.cookies.creator,
+      );
+      expect((await get(f.cookies.creator)).status).toBe(404);
+      calls = 0;
+      await dispatchPushBatch(async () => {
+        calls++;
+        throw new Error("should not send");
+      });
+      expect(calls).toBe(0);
+    } finally {
+      for (const key of [
+        "PUSH_ENABLED",
+        "VAPID_PUBLIC_KEY",
+        "VAPID_PRIVATE_KEY",
+        "VAPID_SUBJECT",
+      ])
+        if (old[key] === undefined) delete process.env[key];
+        else process.env[key] = old[key];
+    }
+  });
+  it("does not retry ambiguous push sends and retires expired endpoints", async () => {
+    const personal = await fixture();
+    await login(personal, "creator");
+    const saved = { ...process.env };
+    process.env.PUSH_ENABLED = "true";
+    process.env.VAPID_PUBLIC_KEY = "test";
+    process.env.VAPID_PRIVATE_KEY = "test";
+    process.env.VAPID_SUBJECT = "mailto:test@example.test";
+    try {
+      const e = createECDH("prime256v1");
+      e.generateKeys();
+      const subscription = {
+        endpoint: `https://fcm.googleapis.com/fcm/send/${randomUUID()}`,
+        keys: {
+          auth: randomBytes(16).toString("base64url"),
+          p256dh: e.getPublicKey().toString("base64url"),
+        },
+      };
+      const sub = await request(
+        "push/subscribe",
+        "POST",
+        subscription,
+        personal.cookies.creator,
+      );
+      expect(sub.status).toBe(201);
+      const notify = async () => {
+        const n = (
+          await pool.query(
+            "INSERT INTO notifications(company_id,team_id,title,body,resource_id,event_key) VALUES($1,$2,'Test','Test',$3,$4) RETURNING id",
+            [
+              personal.company,
+              personal.team,
+              personal.users.creator.id,
+              `run:${randomUUID()}`,
+            ],
+          )
+        ).rows[0];
+        await enqueuePushNotifications();
+        return (
+          await pool.query(
+            "SELECT * FROM push_deliveries WHERE notification_id=$1",
+            [n.id],
+          )
+        ).rows[0];
+      };
+      const first = await notify();
+      let calls = 0;
+      await dispatchPushBatch(async () => {
+        calls++;
+        throw new Error("network uncertainty");
+      });
+      expect(
+        (
+          await pool.query("SELECT status FROM push_deliveries WHERE id=$1", [
+            first.id,
+          ])
+        ).rows[0].status,
+      ).toBe("UNKNOWN");
+      await dispatchPushBatch(async () => {
+        calls++;
+        throw new Error();
+      });
+      expect(calls).toBe(1);
+      const second = await notify();
+      await dispatchPushBatch(async () => {
+        throw { statusCode: 410 };
+      });
+      expect(
+        (
+          await pool.query("SELECT status FROM push_deliveries WHERE id=$1", [
+            second.id,
+          ])
+        ).rows[0].status,
+      ).toBe("FAILED");
+      expect(
+        (
+          await pool.query(
+            "SELECT active FROM push_subscriptions WHERE id=$1",
+            [sub.body.id],
+          )
+        ).rows[0].active,
+      ).toBe(false);
+    } finally {
+      for (const key of [
+        "PUSH_ENABLED",
+        "VAPID_PUBLIC_KEY",
+        "VAPID_PRIVATE_KEY",
+        "VAPID_SUBJECT",
+      ])
+        if (saved[key] === undefined) delete process.env[key];
+        else process.env[key] = saved[key];
+    }
   });
   it("changes passwords without logging secrets and revokes other sessions", async () => {
     const personal = await fixture();

@@ -52,7 +52,7 @@ async function settleCost(db: PoolClient, m: any, status: string) {
     );
 }
 async function refreshRunStatus(db: PoolClient, runId: string) {
-  const result=await db.query(
+  const result = await db.query(
     `WITH outcome AS MATERIALIZED (SELECT CASE
     WHEN EXISTS(SELECT 1 FROM messages WHERE run_id=$1 AND status IN ('QUEUED','ACCEPTED','SENT')) THEN 'RUNNING'
     WHEN EXISTS(SELECT 1 FROM messages WHERE run_id=$1 AND status IN ('FAILED','UNKNOWN')) THEN 'COMPLETED_WITH_ERRORS'
@@ -61,10 +61,23 @@ async function refreshRunStatus(db: PoolClient, runId: string) {
     WHERE runs.id=$1 AND runs.status NOT IN ('CANCELLED','PAUSED','RECOVERY_HOLD','VALIDATION_HOLD') RETURNING runs.status`,
     [runId],
   );
-  const status=result.rows[0]?.status;
-  if(status?.startsWith('COMPLETED'))await db.query(`INSERT INTO notifications(company_id,team_id,title,body,resource_id,event_key)
+  const status = result.rows[0]?.status;
+  if (status?.startsWith("COMPLETED"))
+    await db.query(
+      `INSERT INTO notifications(company_id,team_id,title,body,resource_id,event_key)
     SELECT c.company_id,c.team_id,$2,c.name||': '||$3,c.id,'run:'||r.id::text||':'||$4 FROM runs r JOIN campaigns c ON c.id=r.campaign_id WHERE r.id=$1
-    ON CONFLICT(event_key) DO NOTHING`,[runId,status==='COMPLETED'?'Eksekusi selesai':'Eksekusi selesai dengan perhatian',status==='COMPLETED'?'semua pesan selesai.':'periksa hasil gagal atau belum terkonfirmasi.',status]);
+    ON CONFLICT(event_key) DO NOTHING`,
+      [
+        runId,
+        status === "COMPLETED"
+          ? "Eksekusi selesai"
+          : "Eksekusi selesai dengan perhatian",
+        status === "COMPLETED"
+          ? "semua pesan selesai."
+          : "periksa hasil gagal atau belum terkonfirmasi.",
+        status,
+      ],
+    );
 }
 
 const redis = new URL(process.env.REDIS_URL ?? "redis://127.0.0.1:63799");

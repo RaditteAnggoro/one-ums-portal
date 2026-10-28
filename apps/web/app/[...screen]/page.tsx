@@ -2,6 +2,9 @@ import { notFound } from "next/navigation";
 import Home from "../page";
 const routes = new Set([
   "dashboard",
+  "help",
+  "settings/notifications",
+  "settings/companies",
   "messages",
   "deliveries",
   "channels",
@@ -19,7 +22,9 @@ const routes = new Set([
 export default async function Screen({
   params,
 }: {
-  params: Promise<{ screen: string[] }>;
+  params: Promise<{
+    screen: string[];
+  }>;
 }) {
   const { screen } = await params;
   if (!routes.has(screen.join("/"))) notFound();

@@ -1,4 +1,5 @@
 "use client";
+import { Select } from "./components/select";
 import {
   useCallback,
   useEffect,
@@ -32,6 +33,10 @@ import {
   VendorUsage,
   ReconciliationWorkspace,
 } from "./components/operations-workspace";
+import { t as tr, localeTag, useLanguage } from "./components/i18n";
+import { HelpCenter } from "./components/help-center";
+import { PushSettings } from "./components/push-settings";
+import { CompanyPanel } from "./components/company-panel";
 import { AdminPanel } from "./admin-panel";
 import { ProviderPanel } from "./provider-panel";
 import { DashboardEditor } from "./dashboard-editor";
@@ -65,7 +70,6 @@ import {
   ArrowLeft,
   RefreshCw,
 } from "lucide-react";
-
 type Row = Record<string, any>;
 const ledgerLabels: Record<string, string> = {
   ALLOCATE: "Alokasi",
@@ -85,16 +89,17 @@ type Bootstrap = {
   notifications: Row[];
   roles: Row[];
   policy: Row;
+  config?: Row;
   stats: Row[];
 };
 const money = (n: string | number) =>
-  new Intl.NumberFormat("id-ID", {
+  new Intl.NumberFormat(localeTag(), {
     style: "currency",
     currency: "IDR",
     maximumFractionDigits: 0,
   }).format(Number(n));
 const date = (v: string) =>
-  new Intl.DateTimeFormat("id-ID", {
+  new Intl.DateTimeFormat(localeTag(), {
     dateStyle: "medium",
     timeStyle: "short",
     timeZone: "Asia/Jakarta",
@@ -142,14 +147,14 @@ async function api(path: string, method = "GET", body?: unknown) {
   });
   const value = await response
     .json()
-    .catch(() => ({ message: "Layanan belum siap. Silakan coba lagi." }));
+    .catch(() => ({ message: tr("Layanan belum siap. Silakan coba lagi.") }));
   if (generation !== sessionGeneration)
     throw Object.assign(
-      new Error("Sesi berubah. Muat ulang data ruang kerja."),
+      new Error(tr("Sesi berubah. Muat ulang data ruang kerja.")),
       { status: 401 },
     );
   if (!response.ok)
-    throw Object.assign(new Error(value.message ?? "Permintaan gagal."), {
+    throw Object.assign(new Error(tr(value.message ?? "Permintaan gagal.")), {
       status: response.status,
     });
   return value;
@@ -157,7 +162,7 @@ async function api(path: string, method = "GET", body?: unknown) {
 function Badge({ status }: { status: string }) {
   return (
     <span className={`badge ${status.toLowerCase()}`}>
-      {labels[status] ?? status}
+      {tr(labels[status] ?? status)}
     </span>
   );
 }
@@ -172,16 +177,21 @@ function Field({
 }) {
   const labelId = useId();
   return (
-    <label className="field">
-      <span id={labelId}>{label}</span>
+    <div className="field">
+      <label htmlFor={`${labelId}-control`} id={labelId}>
+        {label}
+      </label>
       {isValidElement(children)
         ? cloneElement(
-            children as ReactElement<{ "aria-labelledby"?: string }>,
-            { "aria-labelledby": labelId },
+            children as ReactElement<{
+              "aria-labelledby"?: string;
+              id?: string;
+            }>,
+            { "aria-labelledby": labelId, id: `${labelId}-control` },
           )
         : children}
       {hint && <small>{hint}</small>}
-    </label>
+    </div>
   );
 }
 function Empty({ children }: { children: ReactNode }) {
@@ -209,6 +219,8 @@ function Modal({
   const dialog = useRef<HTMLElement>(null);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const background = [
       ...document.querySelectorAll<HTMLElement>(".main-shell,.sidebar"),
     ];
@@ -220,6 +232,7 @@ function Modal({
       ?.focus();
     return () => {
       background.forEach((element) => element.removeAttribute("inert"));
+      document.body.style.overflow = previousOverflow;
       previous?.focus();
     };
   }, []);
@@ -231,7 +244,7 @@ function Modal({
       <section
         ref={dialog}
         onKeyDown={(event) => {
-          if (event.key === "Escape") {
+          if (event.key === "Escape" && !event.defaultPrevented) {
             event.preventDefault();
             close();
           }
@@ -260,7 +273,7 @@ function Modal({
       >
         <header>
           <h2>{title}</h2>
-          <button className="icon-btn" onClick={close} aria-label="Tutup">
+          <button className="icon-btn" onClick={close} aria-label={tr("Tutup")}>
             <X size={20} />
           </button>
         </header>
@@ -271,7 +284,7 @@ function Modal({
               type="button"
               className="icon-btn"
               onClick={dialogError.clear}
-              aria-label="Tutup pesan"
+              aria-label={tr("Tutup pesan")}
             >
               <X size={15} />
             </button>
@@ -282,8 +295,8 @@ function Modal({
     </div>
   );
 }
-
 export default function Home() {
+  const { locale, setLocale } = useLanguage();
   const [data, setData] = useState<Bootstrap | null>(null);
   const [loaded, setLoaded] = useState(false);
   const router = useRouter();
@@ -353,7 +366,12 @@ export default function Home() {
     } catch (e) {
       if (
         generation === sessionGeneration &&
-        (!loaded || (e as Error & { status?: number }).status === 401)
+        (!loaded ||
+          (
+            e as Error & {
+              status?: number;
+            }
+          ).status === 401)
       )
         updateSession(null);
     } finally {
@@ -405,7 +423,7 @@ export default function Home() {
   }, [selected?.id, modal, messagePage]);
   const perform = async (
     fn: () => Promise<unknown>,
-    message = "Perubahan tersimpan.",
+    message = tr("Perubahan tersimpan."),
   ) => {
     const operationUser = currentUser.current;
     setBusy(true);
@@ -425,13 +443,26 @@ export default function Home() {
       if (operationUser === currentUser.current) setBusy(false);
     }
   };
+  useEffect(() => {
+    const saved = data?.user.profile?.locale;
+    if (saved === "id" || saved === "en") setLocale(saved);
+  }, [data?.user.id, data?.user.profile?.locale]);
+  useEffect(() => {
+    if (!data?.user.id) return;
+    const id = new URLSearchParams(window.location.search).get("campaign");
+    if (id && /^[0-9a-f-]{36}$/i.test(id)) {
+      setSelected({ id });
+      setDetail(null);
+      setModal("detail");
+    }
+  }, [data?.user.id]);
   const can = (permission: string) =>
     data?.user.permissions.includes(permission);
   if (!loaded)
     return (
       <main className="loading">
         <Radio className="brand-icon" size={35} />
-        Menyiapkan ruang kerja…
+        {tr("Menyiapkan ruang kerja\u2026")}
       </main>
     );
   if (!data)
@@ -440,29 +471,40 @@ export default function Home() {
         <div className="login-story">
           <UMSBrand />
           <div>
-            <span className="eyebrow">PESAN YANG TERORGANISASI</span>
+            <span className="eyebrow">{tr("PESAN YANG TERORGANISASI")}</span>
             <h1>
-              Satu ruang.
+              {tr("Satu ruang.")}
               <br />
-              Setiap pesan.
+              {tr("Setiap pesan.")}
               <br />
-              <em>Lebih terkendali.</em>
+              <em>{tr("Lebih terkendali.")}</em>
             </h1>
             <p>
-              Kelola kampanye, persetujuan, dan anggaran tim dengan langkah yang
-              jelas.
+              {tr(
+                "Kelola kampanye, persetujuan, dan anggaran tim dengan langkah yang jelas.",
+              )}
             </p>
           </div>
-          <small>Workspace lokal · Portofolio pengembangan</small>
+          <small>{tr("Platform komunikasi · Alur kerja tim")}</small>
         </div>
         <div className="login-form">
           <div className="login-card">
-            <span className="eyebrow">SELAMAT DATANG KEMBALI</span>
-            <h2>Masuk ke ruang kerja</h2>
-            <p>Pilih akun demo untuk mencoba alur tim.</p>
+            <div className="login-language">
+              <Select
+                aria-label={tr("Bahasa")}
+                value={locale}
+                onChange={(e) => setLocale(e.target.value as "id" | "en")}
+              >
+                <option value="id">Indonesia</option>
+                <option value="en">English</option>
+              </Select>
+            </div>
+            <span className="eyebrow">{tr("SELAMAT DATANG KEMBALI")}</span>
+            <h2>{tr("Masuk ke ruang kerja")}</h2>
+            <p>{tr("Pilih akun demo untuk mencoba alur tim.")}</p>
             {error && (
               <div role="alert" className="alert error">
-                {error}
+                {tr(error)}
               </div>
             )}
             <form
@@ -471,10 +513,10 @@ export default function Home() {
                 void perform(async () => {
                   await api("auth/login", "POST", { email, password });
                   updateSession(await api("bootstrap"));
-                }, "Berhasil masuk.");
+                }, tr("Berhasil masuk."));
               }}
             >
-              <Field label="Email">
+              <Field label={tr("Email")}>
                 <input
                   type="email"
                   required
@@ -483,7 +525,7 @@ export default function Home() {
                   autoComplete="username"
                 />
               </Field>
-              <Field label="Kata sandi">
+              <Field label={tr("Kata sandi")}>
                 <input
                   type="password"
                   required
@@ -493,12 +535,12 @@ export default function Home() {
                 />
               </Field>
               <button className="primary full" disabled={busy}>
-                {busy ? "Memproses…" : "Masuk"}
+                {busy ? tr("Memproses\u2026") : tr("Masuk")}
                 <ArrowUpRight size={18} />
               </button>
             </form>
             <div className="demo-accounts">
-              <span>Coba sebagai</span>
+              <span>{tr("Coba sebagai")}</span>
               {["creator", "approver", "finance", "admin"].map((role) => (
                 <button
                   type="button"
@@ -513,8 +555,8 @@ export default function Home() {
             <div className="simulation">
               <ShieldCheck size={20} />
               <span>
-                <b>Mode simulasi aman</b>Semua pesan tetap lokal. Tidak ada
-                biaya vendor.
+                <b>{tr("Mode simulasi aman")}</b>
+                {tr("Penyedia uji tidak membebankan biaya vendor.")}
               </span>
             </div>
           </div>
@@ -550,10 +592,10 @@ export default function Home() {
         <table>
           <thead>
             <tr>
-              <th>Kampanye</th>
-              <th>Status</th>
-              <th>Pembuat</th>
-              <th>Dibuat</th>
+              <th>{tr("Kampanye")}</th>
+              <th>{tr("Status")}</th>
+              <th>{tr("Pembuat")}</th>
+              <th>{tr("Dibuat")}</th>
               <th />
             </tr>
           </thead>
@@ -572,7 +614,9 @@ export default function Home() {
                     {c.name}
                   </button>
                   <small className="mono">
-                    {c.id.slice(0, 8)} · v{c.version}
+                    {c.id.slice(0, 8)}
+                    {tr(" \u00B7 v")}
+                    {c.version}
                   </small>
                 </td>
                 <td>
@@ -590,8 +634,9 @@ export default function Home() {
       </div>
     ) : (
       <Empty>
-        Belum ada kampanye. Mulai dari sumber data dan template yang sudah
-        tersedia.
+        {tr(
+          "Belum ada kampanye. Mulai dari sumber data dan template yang sudah tersedia.",
+        )}
       </Empty>
     );
   const widgets = (data.user.profile?.dashboard?.widgets ?? [
@@ -622,6 +667,17 @@ export default function Home() {
             user={data.user}
             theme={shell.theme}
             changeTheme={shell.changeTheme}
+            changeLanguage={(next) =>
+              void perform(
+                async () => {
+                  await api("profile/language", "PUT", { locale: next });
+                  setLocale(next);
+                },
+                next === "en" ? "Language updated." : "Bahasa diperbarui.",
+              )
+            }
+            environment={data.config?.environment}
+            help={() => navigate("help")}
             search={() => setModal("command")}
             notifications={() => setModal("notifications")}
             unread={data.notifications.some(
@@ -638,16 +694,16 @@ export default function Home() {
             {notice && (
               <div role="status" className="toast">
                 <Check size={18} />
-                {notice}
+                {tr(notice)}
               </div>
             )}
             {error && (
               <div role="alert" className="alert error">
-                {error}
+                {tr(error)}
                 <button
                   className="icon-btn"
                   onClick={() => setError("")}
-                  aria-label="Tutup pesan"
+                  aria-label={tr("Tutup pesan")}
                 >
                   <X size={16} />
                 </button>
@@ -657,20 +713,26 @@ export default function Home() {
               <div>
                 <span className="eyebrow">
                   {page === "dashboard"
-                    ? "RUANG KERJA ANDA"
-                    : "KELOLA DENGAN JELAS"}
+                    ? tr("RUANG KERJA ANDA")
+                    : tr("KELOLA DENGAN JELAS")}
                 </span>
                 <h1>
                   {page === "dashboard"
-                    ? "Overview"
-                    : nav.find((n) => n[0] === page)?.[1]}
+                    ? tr("Overview")
+                    : tr(nav.find((n) => n[0] === page)?.[1] ?? "")}
                 </h1>
                 <p>
                   {page === "dashboard"
-                    ? "Aktivitas pesan, performa delivery, dan kendali operasional dalam satu workspace."
+                    ? tr(
+                        "Aktivitas pesan, performa delivery, dan kendali operasional dalam satu workspace.",
+                      )
                     : page === "approvals"
-                      ? "Tinjau isi, penerima, dan biaya sebelum memberikan keputusan."
-                      : "Data dan tindakan mengikuti akses perusahaan serta tim Anda."}
+                      ? tr(
+                          "Tinjau isi, penerima, dan biaya sebelum memberikan keputusan.",
+                        )
+                      : tr(
+                          "Data dan tindakan mengikuti akses perusahaan serta tim Anda.",
+                        )}
                 </p>
               </div>
               {can("campaigns:create") &&
@@ -680,26 +742,26 @@ export default function Home() {
                     onClick={() => setModal("campaign")}
                   >
                     <Plus size={18} />
-                    Buat kampanye
+                    {tr("Buat kampanye")}
                   </button>
                 )}
             </div>
             {page === "dashboard" && (
               <>
                 <div className="section-heading">
-                  <h2>Ruang pantau</h2>
+                  <h2>{tr("Ruang pantau")}</h2>
                   <button
                     className="subtle"
                     onClick={() => setModal("dashboard")}
                   >
                     <SlidersHorizontal size={16} />
-                    Atur tampilan
+                    {tr("Atur tampilan")}
                   </button>
                 </div>
                 <div className="dashboard-filters">
-                  <span>Filter pesan</span>
-                  <select
-                    aria-label="Filter kanal dashboard"
+                  <span>{tr("Filter pesan")}</span>
+                  <Select
+                    aria-label={tr("Filter kanal dashboard")}
                     value={data.user.profile.dashboard.filters.channel}
                     onChange={(e) =>
                       void perform(
@@ -711,17 +773,17 @@ export default function Home() {
                               channel: e.target.value,
                             },
                           }),
-                        "Filter tersimpan.",
+                        tr("Filter tersimpan."),
                       )
                     }
                   >
-                    <option value="all">Semua kanal</option>
-                    <option value="email">Email</option>
-                    <option value="sms">SMS</option>
-                    <option value="whatsapp">WhatsApp</option>
-                  </select>
-                  <select
-                    aria-label="Filter periode dashboard"
+                    <option value="all">{tr("Semua kanal")}</option>
+                    <option value="email">{tr("Email")}</option>
+                    <option value="sms">{tr("SMS")}</option>
+                    <option value="whatsapp">{tr("WhatsApp")}</option>
+                  </Select>
+                  <Select
+                    aria-label={tr("Filter periode dashboard")}
                     value={data.user.profile.dashboard.filters.days}
                     onChange={(e) =>
                       void perform(
@@ -733,16 +795,16 @@ export default function Home() {
                               days: e.target.value,
                             },
                           }),
-                        "Filter tersimpan.",
+                        tr("Filter tersimpan."),
                       )
                     }
                   >
-                    <option value="all">Semua waktu</option>
-                    <option value="1">24 jam</option>
-                    <option value="7">7 hari</option>
-                    <option value="30">30 hari</option>
-                    <option value="90">90 hari</option>
-                  </select>
+                    <option value="all">{tr("Semua waktu")}</option>
+                    <option value="1">{tr("24 jam")}</option>
+                    <option value="7">{tr("7 hari")}</option>
+                    <option value="30">{tr("30 hari")}</option>
+                    <option value="90">{tr("90 hari")}</option>
+                  </Select>
                 </div>
                 {can("campaigns:read") && (
                   <OperationsDashboard
@@ -755,9 +817,9 @@ export default function Home() {
                   />
                 )}
                 <div className="section-heading personal-dashboard-heading">
-                  <h2>Workspace Anda</h2>
+                  <h2>{tr("Workspace Anda")}</h2>
                   <span className="hint">
-                    Widget mengikuti pengaturan pribadi
+                    {tr("Widget mengikuti pengaturan pribadi")}
                   </span>
                 </div>
                 <div className="dashboard-grid">
@@ -779,10 +841,10 @@ export default function Home() {
                         <h3>
                           {
                             {
-                              campaigns: "Kampanye terbaru",
-                              delivery: "Hasil pengiriman",
-                              budget: "Ringkasan anggaran",
-                              activity: "Aktivitas tim",
+                              campaigns: tr("Kampanye terbaru"),
+                              delivery: tr("Hasil pengiriman"),
+                              budget: tr("Ringkasan anggaran"),
+                              activity: tr("Aktivitas tim"),
                             }[widget]
                           }
                         </h3>
@@ -800,7 +862,8 @@ export default function Home() {
                             )
                           }
                         >
-                          Lihat semua <ArrowUpRight size={14} />
+                          {tr("Lihat semua ")}
+                          <ArrowUpRight size={14} />
                         </button>
                       </div>
                       {widget === "campaigns" ? (
@@ -820,21 +883,24 @@ export default function Home() {
                                   : 0}
                                 %
                               </strong>
-                              <small>Tersampaikan</small>
+                              <small>{tr("Tersampaikan")}</small>
                             </div>
                           </div>
                           <div className="legend">
                             <span>
                               <i />
-                              Tersampaikan <b>{delivered}</b>
+                              {tr("Tersampaikan ")}
+                              <b>{delivered}</b>
                             </span>
                             <span>
                               <i className="amber" />
-                              Perlu perhatian <b>{failed}</b>
+                              {tr("Perlu perhatian ")}
+                              <b>{failed}</b>
                             </span>
                             <span>
                               <i className="grey" />
-                              Pesan lainnya <b>{total - delivered - failed}</b>
+                              {tr("Pesan lainnya ")}
+                              <b>{total - delivered - failed}</b>
                             </span>
                           </div>
                         </div>
@@ -845,7 +911,10 @@ export default function Home() {
                               <div key={b.id}>
                                 <div>
                                   <b>{b.name}</b>
-                                  <span>{money(b.available)} tersedia</span>
+                                  <span>
+                                    {money(b.available)}
+                                    {tr(" tersedia")}
+                                  </span>
                                 </div>
                                 <div className="progress">
                                   <i
@@ -855,15 +924,20 @@ export default function Home() {
                                   />
                                 </div>
                                 <small>
-                                  Terpakai {money(b.spent)} · Dicadangkan{" "}
-                                  {money(b.reserved)} · Simulasi
+                                  {tr("Terpakai ")}
+                                  {money(b.spent)}
+                                  {tr(" \u00B7 Dicadangkan")}{" "}
+                                  {money(b.reserved)}
+                                  {tr(" \u00B7 Simulasi")}
                                 </small>
                               </div>
                             ))}
                           </div>
                         ) : (
                           <Empty>
-                            Akses anggaran tidak tersedia untuk peran Anda.
+                            {tr(
+                              "Akses anggaran tidak tersedia untuk peran Anda.",
+                            )}
                           </Empty>
                         )
                       ) : (
@@ -874,15 +948,17 @@ export default function Home() {
                                 <Bell size={15} />
                               </span>
                               <div>
-                                <b>{n.title}</b>
-                                <p>{n.body}</p>
+                                <b>{tr(n.title)}</b>
+                                <p>{tr(n.body)}</p>
                                 <small>{date(n.created_at)}</small>
                               </div>
                             </div>
                           ))}
                           {!data.notifications.length && (
                             <Empty>
-                              Aktivitas kampanye tim akan tampil di sini.
+                              {tr(
+                                "Aktivitas kampanye tim akan tampil di sini.",
+                              )}
                             </Empty>
                           )}
                         </div>
@@ -902,39 +978,55 @@ export default function Home() {
                   mode={page}
                 />
               ) : (
-                <Empty>Akses pesan tidak tersedia untuk peran Anda.</Empty>
+                <Empty>
+                  {tr("Akses pesan tidak tersedia untuk peran Anda.")}
+                </Empty>
               ))}
             {page === "channels" &&
               (can("campaigns:read") ? (
                 <ChannelMonitoring request={api} navigate={navigate} />
               ) : (
-                <Empty>Akses pemantauan tidak tersedia.</Empty>
+                <Empty>{tr("Akses pemantauan tidak tersedia.")}</Empty>
               ))}
             {page === "usage" &&
               (can("budgets:read") ? (
                 <VendorUsage request={api} navigate={navigate} />
               ) : (
-                <Empty>Akses keuangan tidak tersedia.</Empty>
+                <Empty>{tr("Akses keuangan tidak tersedia.")}</Empty>
               ))}
             {page === "reconciliation" &&
               (can("budgets:read") ? (
                 <ReconciliationWorkspace request={api} open={openMessage} />
               ) : (
-                <Empty>Akses rekonsiliasi tidak tersedia.</Empty>
+                <Empty>{tr("Akses rekonsiliasi tidak tersedia.")}</Empty>
+              ))}
+            {page === "help" && (
+              <HelpCenter user={data.user} navigate={navigate} />
+            )}
+            {page === "push" && (
+              <PushSettings request={api} profile={data.user.profile} />
+            )}
+            {page === "companies" &&
+              (data.user.platform_admin ? (
+                <CompanyPanel request={api} />
+              ) : (
+                <Empty>
+                  {tr("Hanya admin platform yang dapat mengelola perusahaan.")}
+                </Empty>
               ))}
             {page === "providers" &&
               (can("admin:write") ? (
                 <ProviderPanel request={api} perform={perform} />
               ) : (
-                <Empty>Akses administrasi tidak tersedia.</Empty>
+                <Empty>{tr("Akses administrasi tidak tersedia.")}</Empty>
               ))}
             {["campaigns", "approvals"].includes(page) && (
               <section className="panel">
                 <div className="panel-heading">
                   <h3>
                     {page === "approvals"
-                      ? "Permintaan persetujuan"
-                      : "Semua kampanye"}{" "}
+                      ? tr("Permintaan persetujuan")
+                      : tr("Semua kampanye")}{" "}
                     <span className="count">
                       {page === "approvals"
                         ? pending.length
@@ -944,8 +1036,8 @@ export default function Home() {
                   <div className="search">
                     <Search size={16} />
                     <input
-                      aria-label="Cari kampanye"
-                      placeholder="Cari kampanye…"
+                      aria-label={tr("Cari kampanye")}
+                      placeholder={tr("Cari kampanye\u2026")}
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                     />
@@ -961,7 +1053,7 @@ export default function Home() {
             {page === "templates" && (
               <>
                 <div className="section-heading">
-                  <p>Versi yang sudah diajukan tetap tersimpan.</p>
+                  <p>{tr("Versi yang sudah diajukan tetap tersimpan.")}</p>
                   <button
                     className="primary"
                     onClick={() => {
@@ -970,7 +1062,7 @@ export default function Home() {
                     }}
                   >
                     <Plus size={17} />
-                    Template baru
+                    {tr("Template baru")}
                   </button>
                 </div>
                 <div className="cards-grid">
@@ -986,7 +1078,8 @@ export default function Home() {
                       <p>{t.body}</p>
                       <footer>
                         <small>
-                          Versi {t.version} · {date(t.created_at)}
+                          {tr("Versi ")}
+                          {t.version} · {date(t.created_at)}
                         </small>
                         <button
                           className="text-btn"
@@ -995,7 +1088,7 @@ export default function Home() {
                             setModal("template");
                           }}
                         >
-                          Buat versi baru
+                          {tr("Buat versi baru")}
                         </button>
                       </footer>
                     </article>
@@ -1009,28 +1102,29 @@ export default function Home() {
             {page === "sources" && (
               <section className="panel">
                 <div className="panel-heading">
-                  <h3>Sumber penerima</h3>
+                  <h3>{tr("Sumber penerima")}</h3>
                   <button
                     className="primary"
                     onClick={() => setModal("source")}
                   >
                     <Upload size={17} />
-                    Unggah data
+                    {tr("Unggah data")}
                   </button>
                 </div>
                 <div className="info-strip">
                   <Database size={18} />
-                  CSV, XLSX, dan JSON tersedia. Gunakan kolom email / phone
-                  untuk tujuan pesan.
+                  {tr(
+                    "CSV, XLSX, dan JSON tersedia. Gunakan kolom email / phone untuk tujuan pesan.",
+                  )}
                 </div>
                 <div className="table-wrap">
                   <table>
                     <thead>
                       <tr>
-                        <th>Sumber</th>
-                        <th>Baris</th>
-                        <th>Versi</th>
-                        <th>Dibuat</th>
+                        <th>{tr("Sumber")}</th>
+                        <th>{tr("Baris")}</th>
+                        <th>{tr("Versi")}</th>
+                        <th>{tr("Dibuat")}</th>
                         <th />
                       </tr>
                     </thead>
@@ -1041,7 +1135,10 @@ export default function Home() {
                             <b>{d.name}</b>
                           </td>
                           <td>{d.row_count}</td>
-                          <td>v{d.version}</td>
+                          <td>
+                            {tr("v")}
+                            {d.version}
+                          </td>
                           <td>{date(d.created_at)}</td>
                           <td>
                             <button
@@ -1050,10 +1147,10 @@ export default function Home() {
                                 void perform(async () => {
                                   setSelected(await api(`datasets/${d.id}`));
                                   setModal("preview");
-                                }, "Pratinjau siap.")
+                                }, tr("Pratinjau siap."))
                               }
                             >
-                              Pratinjau
+                              {tr("Pratinjau")}
                             </button>
                           </td>
                         </tr>
@@ -1065,10 +1162,10 @@ export default function Home() {
             )}
             {page === "budgets" && can("budgets:write") && (
               <div className="section-heading">
-                <p>Periode terpisah, tanpa tumpang tindih.</p>
+                <p>{tr("Periode terpisah, tanpa tumpang tindih.")}</p>
                 <button className="primary" onClick={() => setModal("budget")}>
                   <Plus size={17} />
-                  Periode anggaran baru
+                  {tr("Periode anggaran baru")}
                 </button>
               </div>
             )}
@@ -1078,29 +1175,30 @@ export default function Home() {
                   <article className="panel budget-card" key={b.id}>
                     <div className="section-heading">
                       <Wallet size={22} />
-                      <span className="pill">SIMULASI · IDR</span>
+                      <span className="pill">{tr("SIMULASI \u00B7 IDR")}</span>
                     </div>
                     <h3>{b.name}</h3>
                     <small>
                       {String(b.starts_on).slice(0, 10)} —{" "}
-                      {String(b.ends_on).slice(0, 10)} (eksklusif) · {b.months}{" "}
-                      bulan
+                      {String(b.ends_on).slice(0, 10)}
+                      {tr(" (eksklusif) \u00B7 ")}
+                      {b.months} {tr("bulan")}
                     </small>
                     <strong>{money(b.available)}</strong>
-                    <span>Anggaran tersedia</span>
+                    <span>{tr("Anggaran tersedia")}</span>
                     <dl>
                       <div>
-                        <dt>Alokasi + penyesuaian</dt>
+                        <dt>{tr("Alokasi + penyesuaian")}</dt>
                         <dd>
                           {money(Number(b.allocated) + Number(b.adjusted))}
                         </dd>
                       </div>
                       <div>
-                        <dt>Dicadangkan</dt>
+                        <dt>{tr("Dicadangkan")}</dt>
                         <dd>{money(b.reserved)}</dd>
                       </div>
                       <div>
-                        <dt>Biaya terkonfirmasi</dt>
+                        <dt>{tr("Biaya terkonfirmasi")}</dt>
                         <dd>{money(b.spent)}</dd>
                       </div>
                     </dl>
@@ -1113,10 +1211,10 @@ export default function Home() {
                             ...(await api(`budgets/${b.id}/ledger`)),
                           });
                           setModal("ledger");
-                        }, "Riwayat biaya dimuat.")
+                        }, tr("Riwayat biaya dimuat."))
                       }
                     >
-                      Riwayat alokasi dan biaya
+                      {tr("Riwayat alokasi dan biaya")}
                     </button>
                     {can("budgets:write") && (
                       <button
@@ -1127,7 +1225,7 @@ export default function Home() {
                         }}
                       >
                         <Plus size={16} />
-                        Tambah alokasi
+                        {tr("Tambah alokasi")}
                       </button>
                     )}
                   </article>
@@ -1137,12 +1235,12 @@ export default function Home() {
             {page === "audit" && (
               <section className="panel">
                 <div className="panel-heading">
-                  <h3>Aktivitas tercatat</h3>
+                  <h3>{tr("Aktivitas tercatat")}</h3>
                   <div className="search">
                     <Search size={16} />
                     <input
-                      placeholder="Cari aksi atau ID…"
-                      aria-label="Cari audit"
+                      placeholder={tr("Cari aksi atau ID\u2026")}
+                      aria-label={tr("Cari audit")}
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                     />
@@ -1152,11 +1250,11 @@ export default function Home() {
                   <table>
                     <thead>
                       <tr>
-                        <th>Waktu</th>
-                        <th>Pengguna</th>
-                        <th>Aksi</th>
-                        <th>Objek / ID</th>
-                        <th>Alamat IP</th>
+                        <th>{tr("Waktu")}</th>
+                        <th>{tr("Pengguna")}</th>
+                        <th>{tr("Aksi")}</th>
+                        <th>{tr("Objek / ID")}</th>
+                        <th>{tr("Alamat IP")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1186,7 +1284,7 @@ export default function Home() {
                 )}
                 <section className="panel settings-panel">
                   <Users size={24} />
-                  <h2>Profil Anda</h2>
+                  <h2>{tr("Profil Anda")}</h2>
                   <p>
                     {data.user.name} · {data.user.email}
                   </p>
@@ -1194,15 +1292,15 @@ export default function Home() {
                     className="secondary"
                     onClick={() => setModal("profile")}
                   >
-                    Ubah profil
+                    {tr("Ubah profil")}
                   </button>
                 </section>
                 <section className="panel settings-panel">
                   <ShieldCheck size={24} />
-                  <h2>Alur persetujuan</h2>
+                  <h2>{tr("Alur persetujuan")}</h2>
                   <p>
-                    {data.policy?.stages?.length ?? 0} tingkat · Versi{" "}
-                    {data.policy?.version}
+                    {data.policy?.stages?.length ?? 0}
+                    {tr(" tingkat \u00B7 Versi")} {data.policy?.version}
                   </p>
                   <ol className="policy-list">
                     {data.policy?.stages?.map((s: Row, i: number) => (
@@ -1222,40 +1320,42 @@ export default function Home() {
                       className="secondary"
                       onClick={() => setModal("policy")}
                     >
-                      Atur tingkat persetujuan
+                      {tr("Atur tingkat persetujuan")}
                     </button>
                   )}
                 </section>
                 <section className="panel settings-panel">
                   <MessageSquare size={24} />
-                  <h2>Penyedia lokal</h2>
+                  <h2>{tr("Penyedia uji")}</h2>
                   <p>
-                    Satu simulator untuk email, SMS, dan WhatsApp. Hasil diberi
-                    label simulasi.
+                    {tr(
+                      "Satu simulator untuk email, SMS, dan WhatsApp. Hasil diberi label simulasi.",
+                    )}
                   </p>
                   <small>
-                    Integrasi vendor nyata menunggu dokumentasi API dan akses
-                    pengujian.
+                    {tr(
+                      "Integrasi vendor nyata menunggu dokumentasi API dan akses pengujian.",
+                    )}
                   </small>
                 </section>
               </div>
             )}
             <footer className="page-footer">
-              <span>UMS workspace · Asia/Jakarta (WIB)</span>
+              <span>{tr("UMS workspace \u00B7 Asia/Jakarta (WIB)")}</span>
               <span>
                 <ShieldCheck size={14} />
-                Akses mengikuti peran Anda
+                {tr("Akses mengikuti peran Anda")}
               </span>
             </footer>
           </main>
         </div>
         {modal === "command" && (
-          <Modal title="Pencarian global" close={() => setModal("")}>
+          <Modal title={tr("Pencarian global")} close={() => setModal("")}>
             <CommandSearch user={data.user} navigate={navigate} />
           </Modal>
         )}
         {modal === "message-investigation" && selected && (
-          <Modal title="Detail pesan" drawer close={() => setModal("")}>
+          <Modal title={tr("Detail pesan")} drawer close={() => setModal("")}>
             <MessageInvestigation
               key={selected.id}
               request={api}
@@ -1280,13 +1380,13 @@ export default function Home() {
                 await api(`campaigns/${c.id}/submit`, "POST", {});
                 setModal("");
                 setPage("campaigns");
-              }, "Kampanye diajukan untuk persetujuan.")
+              }, tr("Kampanye diajukan untuk persetujuan."))
             }
           />
         )}
         {modal === "template" && (
           <Modal
-            title={selected ? "Buat versi template" : "Template baru"}
+            title={selected ? tr("Buat versi template") : tr("Template baru")}
             close={() => setModal("")}
           >
             <form
@@ -1301,10 +1401,10 @@ export default function Home() {
                     ...(selected ? { parentId: selected.id } : {}),
                   });
                   setModal("");
-                }, "Versi template tersimpan.");
+                }, tr("Versi template tersimpan."));
               }}
             >
-              <Field label="Nama template">
+              <Field label={tr("Nama template")}>
                 <input
                   name="name"
                   required
@@ -1312,19 +1412,21 @@ export default function Home() {
                   defaultValue={selected?.name}
                 />
               </Field>
-              <Field label="Kanal">
-                <select
+              <Field label={tr("Kanal")}>
+                <Select
                   name="channel"
                   defaultValue={selected?.channel ?? "email"}
                 >
                   {["email", "sms", "whatsapp"].map((c) => (
                     <option key={c}>{c}</option>
                   ))}
-                </select>
+                </Select>
               </Field>
               <Field
-                label="Isi pesan"
-                hint="Gunakan {{customer_name}} atau {{reference}} dari kolom data."
+                label={tr("Isi pesan")}
+                hint={tr(
+                  "Gunakan {{customer_name}} atau {{reference}} dari kolom data.",
+                )}
               >
                 <textarea
                   name="body"
@@ -1337,17 +1439,18 @@ export default function Home() {
                 />
               </Field>
               <p className="hint">
-                Template WhatsApp lokal belum merupakan template yang disetujui
-                penyedia.
+                {tr(
+                  "Template WhatsApp uji belum merupakan template yang disetujui penyedia.",
+                )}
               </p>
               <button className="primary full" disabled={busy}>
-                Simpan template
+                {tr("Simpan template")}
               </button>
             </form>
           </Modal>
         )}
         {modal === "source" && (
-          <Modal title="Unggah sumber data" close={() => setModal("")}>
+          <Modal title={tr("Unggah sumber data")} close={() => setModal("")}>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -1373,13 +1476,13 @@ export default function Home() {
                     content,
                   });
                   setModal("");
-                }, "Sumber data berhasil diimpor.");
+                }, tr("Sumber data berhasil diimpor."));
               }}
             >
-              <Field label="Nama sumber">
+              <Field label={tr("Nama sumber")}>
                 <input name="name" required minLength={3} />
               </Field>
-              <Field label="File CSV, XLSX, atau JSON">
+              <Field label={tr("File CSV, XLSX, atau JSON")}>
                 <input
                   name="file"
                   type="file"
@@ -1388,18 +1491,22 @@ export default function Home() {
                 />
               </Field>
               <div className="info-strip">
-                Contoh kolom: customer_name, reference, email, phone. File harus
-                berisi nilai, bukan formula.
+                {tr(
+                  "Contoh kolom: customer_name, reference, email, phone. File harus berisi nilai, bukan formula.",
+                )}
               </div>
               <button className="primary full" disabled={busy}>
-                Impor data
+                {tr("Impor data")}
               </button>
             </form>
           </Modal>
         )}
         {modal === "preview" && selected && (
-          <Modal title="Pratinjau sumber" close={() => setModal("")} wide>
-            <p>{selected.name} · Maksimal 20 baris ditampilkan.</p>
+          <Modal title={tr("Pratinjau sumber")} close={() => setModal("")} wide>
+            <p>
+              {selected.name}
+              {tr(" \u00B7 Maksimal 20 baris ditampilkan.")}
+            </p>
             <div className="table-wrap">
               <table>
                 <thead>
@@ -1423,8 +1530,14 @@ export default function Home() {
           </Modal>
         )}
         {modal === "topup" && selected && (
-          <Modal title="Tambah alokasi internal" close={() => setModal("")}>
-            <p>{selected.name} · Simulasi, tanpa transaksi pembayaran.</p>
+          <Modal
+            title={tr("Tambah alokasi internal")}
+            close={() => setModal("")}
+          >
+            <p>
+              {selected.name}
+              {tr(" \u00B7 Simulasi, tanpa transaksi pembayaran.")}
+            </p>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -1438,7 +1551,7 @@ export default function Home() {
                 });
               }}
             >
-              <Field label="Nominal (IDR)">
+              <Field label={tr("Nominal (IDR)")}>
                 <input
                   name="amount"
                   type="number"
@@ -1447,17 +1560,17 @@ export default function Home() {
                   required
                 />
               </Field>
-              <Field label="Alasan penyesuaian">
+              <Field label={tr("Alasan penyesuaian")}>
                 <textarea name="reason" minLength={3} required />
               </Field>
               <button className="primary full" disabled={busy}>
-                Simpan penyesuaian
+                {tr("Simpan penyesuaian")}
               </button>
             </form>
           </Modal>
         )}
         {modal === "budget" && (
-          <Modal title="Periode anggaran baru" close={() => setModal("")}>
+          <Modal title={tr("Periode anggaran baru")} close={() => setModal("")}>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -1470,33 +1583,34 @@ export default function Home() {
                     amount: f.get("amount"),
                   });
                   setModal("");
-                }, "Periode anggaran tersimpan.");
+                }, tr("Periode anggaran tersimpan."));
               }}
             >
-              <Field label="Pusat biaya">
-                <select name="centre" required>
+              <Field label={tr("Pusat biaya")}>
+                <Select name="centre" required>
                   {data.costCentres.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </Field>
               <div className="form-grid">
-                <Field label="Mulai periode">
+                <Field label={tr("Mulai periode")}>
                   <input name="start" type="date" required />
                 </Field>
-                <Field label="Durasi">
-                  <select name="months">
+                <Field label={tr("Durasi")}>
+                  <Select name="months">
                     {[1, 3, 6, 12].map((n) => (
                       <option key={n} value={n}>
-                        {n} bulan
+                        {n}
+                        {tr(" bulan")}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </Field>
               </div>
-              <Field label="Alokasi awal (IDR)">
+              <Field label={tr("Alokasi awal (IDR)")}>
                 <input
                   name="amount"
                   type="number"
@@ -1506,38 +1620,39 @@ export default function Home() {
                 />
               </Field>
               <button className="primary full" disabled={busy}>
-                Buat periode
+                {tr("Buat periode")}
               </button>
             </form>
           </Modal>
         )}
         {modal === "ledger" && selected && (
           <Modal
-            title="Riwayat alokasi dan biaya"
+            title={tr("Riwayat alokasi dan biaya")}
             close={() => setModal("")}
             wide
           >
             <div className="section-heading">
               <p>
-                {selected.budget.name} · {selected.total} entri · Simulasi
+                {selected.budget.name} · {selected.total}
+                {tr(" entri \u00B7 Simulasi")}
               </p>
               <a
                 className="text-btn"
                 href={`/api/budgets/${selected.budget.id}/ledger.csv`}
                 download
               >
-                Unduh CSV
+                {tr("Unduh CSV")}
               </a>
             </div>
             <div className="table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>Waktu</th>
-                    <th>Jenis</th>
-                    <th>IDR</th>
-                    <th>Run / pesan</th>
-                    <th>Oleh / alasan</th>
+                    <th>{tr("Waktu")}</th>
+                    <th>{tr("Jenis")}</th>
+                    <th>{tr("IDR")}</th>
+                    <th>{tr("Run / pesan")}</th>
+                    <th>{tr("Oleh / alasan")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1553,7 +1668,7 @@ export default function Home() {
                         </small>
                       </td>
                       <td>
-                        {r.actor_name ?? "Sistem"}
+                        {r.actor_name ?? tr("Sistem")}
                         <small>{r.reason ?? ""}</small>
                       </td>
                     </tr>
@@ -1580,17 +1695,17 @@ export default function Home() {
                           `budgets/${selected.budget.id}/ledger?page=${selected.page + direction}`,
                         )),
                       });
-                    }, "Halaman diperbarui.")
+                    }, tr("Halaman diperbarui."))
                   }
                 >
-                  {direction === -1 ? "Sebelumnya" : "Berikutnya"}
+                  {direction === -1 ? tr("Sebelumnya") : tr("Berikutnya")}
                 </button>
               ))}
             </div>
           </Modal>
         )}
         {modal === "profile" && (
-          <Modal title="Profil Anda" close={() => setModal("")}>
+          <Modal title={tr("Profil Anda")} close={() => setModal("")}>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -1602,8 +1717,8 @@ export default function Home() {
                   });
                   const picture = f.get("picture") as File;
                   if (picture?.size) {
-                    if (picture.size > 2_000_000)
-                      throw new Error("Ukuran foto maksimal 2 MB.");
+                    if (picture.size > 2000000)
+                      throw new Error(tr("Ukuran foto maksimal 2 MB."));
                     const bytes = new Uint8Array(await picture.arrayBuffer());
                     let binary = "";
                     for (const byte of bytes)
@@ -1616,7 +1731,7 @@ export default function Home() {
                 });
               }}
             >
-              <Field label="Nama">
+              <Field label={tr("Nama")}>
                 <input
                   name="name"
                   required
@@ -1624,15 +1739,17 @@ export default function Home() {
                   defaultValue={data.user.name}
                 />
               </Field>
-              <Field label="Tentang Anda">
+              <Field label={tr("Tentang Anda")}>
                 <textarea
                   name="bio"
                   defaultValue={data.user.profile.bio ?? ""}
                 />
               </Field>
               <Field
-                label="Foto profil"
-                hint="PNG, JPEG, atau WebP. Maksimal 2 MB dan 8 megapiksel."
+                label={tr("Foto profil")}
+                hint={tr(
+                  "PNG, JPEG, atau WebP. Maksimal 2 MB dan 8 megapiksel.",
+                )}
               >
                 <input
                   name="picture"
@@ -1644,13 +1761,13 @@ export default function Home() {
                 {data.user.email} · {data.user.role}
               </p>
               <button className="primary full" disabled={busy}>
-                Simpan profil
+                {tr("Simpan profil")}
               </button>
             </form>
             <details className="password-settings">
-              <summary>Ubah kata sandi</summary>
+              <summary>{tr("Ubah kata sandi")}</summary>
               <p className="hint">
-                Sesi Anda yang lain akan dikeluarkan setelah perubahan.
+                {tr("Sesi Anda yang lain akan dikeluarkan setelah perubahan.")}
               </p>
               <form
                 onSubmit={(e) => {
@@ -1658,16 +1775,18 @@ export default function Home() {
                   const f = new FormData(e.currentTarget);
                   void perform(async () => {
                     if (f.get("newPassword") !== f.get("confirmPassword"))
-                      throw new Error("Konfirmasi kata sandi belum sesuai.");
+                      throw new Error(
+                        tr("Konfirmasi kata sandi belum sesuai."),
+                      );
                     await api("auth/password", "POST", {
                       currentPassword: f.get("currentPassword"),
                       newPassword: f.get("newPassword"),
                     });
                     setModal("");
-                  }, "Kata sandi diperbarui. Sesi lain telah berakhir.");
+                  }, tr("Kata sandi diperbarui. Sesi lain telah berakhir."));
                 }}
               >
-                <Field label="Kata sandi saat ini">
+                <Field label={tr("Kata sandi saat ini")}>
                   <input
                     name="currentPassword"
                     type="password"
@@ -1676,7 +1795,10 @@ export default function Home() {
                     autoComplete="current-password"
                   />
                 </Field>
-                <Field label="Kata sandi baru" hint="Minimal 12 karakter.">
+                <Field
+                  label={tr("Kata sandi baru")}
+                  hint={tr("Minimal 12 karakter.")}
+                >
                   <input
                     name="newPassword"
                     type="password"
@@ -1686,7 +1808,7 @@ export default function Home() {
                     autoComplete="new-password"
                   />
                 </Field>
-                <Field label="Konfirmasi kata sandi baru">
+                <Field label={tr("Konfirmasi kata sandi baru")}>
                   <input
                     name="confirmPassword"
                     type="password"
@@ -1697,44 +1819,74 @@ export default function Home() {
                   />
                 </Field>
                 <button className="secondary full" disabled={busy}>
-                  Simpan kata sandi
+                  {tr("Simpan kata sandi")}
                 </button>
               </form>
             </details>
           </Modal>
         )}
         {modal === "notifications" && (
-          <Modal title="Notifikasi tim" close={() => setModal("")}>
+          <Modal title={tr("Notifikasi tim")} close={() => setModal("")}>
+            <div className="notification-toolbar">
+              <button
+                className="text-btn"
+                onClick={() =>
+                  void perform(
+                    () => api("notifications/read-all", "POST", {}),
+                    tr("Semua notifikasi ditandai dibaca."),
+                  )
+                }
+              >
+                {tr("Tandai semua dibaca")}
+              </button>
+              <button className="text-btn" onClick={() => navigate("push")}>
+                {tr("Pengaturan notifikasi")}
+              </button>
+            </div>
             <div className="activity-list">
               {data.notifications.map((n) => (
                 <div key={n.id}>
                   <Bell size={17} />
                   <div>
-                    <b>{n.title}</b>
-                    <p>{n.body}</p>
-                    <small>{date(n.created_at)}</small>
-                    <button
-                      className="text-btn"
-                      onClick={() => {
-                        setSelected({ id: n.resource_id });
-                        setModal("detail");
-                      }}
-                    >
-                      Buka kampanye <ChevronRight size={14} />
-                    </button>
-                    {!n.read_by.includes(data.user.id) && (
-                      <button
-                        className="text-btn"
-                        onClick={() =>
-                          void perform(
-                            () => api(`notifications/${n.id}/read`, "POST", {}),
-                            "Notifikasi ditandai dibaca.",
-                          )
-                        }
-                      >
-                        Tandai dibaca
-                      </button>
-                    )}
+                    <b>{tr(n.title)}</b>
+                    <p>{tr(n.body)}</p>
+                    <div className="notification-meta">
+                      <time>{date(n.created_at)}</time>
+                      <div className="notification-actions">
+                        <button
+                          className="text-btn"
+                          onClick={() => {
+                            if (n.event_key?.startsWith("push-test:")) {
+                              navigate("push");
+                              return;
+                            }
+                            setSelected({ id: n.resource_id });
+                            setModal("detail");
+                          }}
+                        >
+                          {tr(
+                            n.event_key?.startsWith("push-test:")
+                              ? "Buka pengaturan"
+                              : "Buka kampanye ",
+                          )}
+                          <ChevronRight size={14} />
+                        </button>
+                        {!n.read_by.includes(data.user.id) && (
+                          <button
+                            className="text-btn"
+                            onClick={() =>
+                              void perform(
+                                () =>
+                                  api(`notifications/${n.id}/read`, "POST", {}),
+                                tr("Notifikasi ditandai dibaca."),
+                              )
+                            }
+                          >
+                            {tr("Tandai dibaca")}
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1742,7 +1894,7 @@ export default function Home() {
           </Modal>
         )}
         {modal === "dashboard" && (
-          <Modal title="Atur ruang pantau" close={() => setModal("")}>
+          <Modal title={tr("Atur ruang pantau")} close={() => setModal("")}>
             <DashboardEditor
               value={data.user.profile.dashboard}
               busy={busy}
@@ -1756,7 +1908,7 @@ export default function Home() {
                 perform(async () => {
                   await api("dashboard/reset", "POST", {});
                   setModal("");
-                }, "Default dipulihkan.")
+                }, tr("Default dipulihkan."))
               }
               publish={
                 can("admin:write")
@@ -1765,7 +1917,7 @@ export default function Home() {
                         await api("admin/dashboard-default", "PUT", value);
                         await api("dashboard", "PUT", value);
                         setModal("");
-                      }, "Default perusahaan dipublikasikan.")
+                      }, tr("Default perusahaan dipublikasikan."))
                   : undefined
               }
             />
@@ -1780,13 +1932,13 @@ export default function Home() {
               perform(async () => {
                 await api("admin/approval-policy", "PUT", { stages });
                 setModal("");
-              }, "Kebijakan baru tersimpan. Pengajuan lama tetap memakai versi sebelumnya.")
+              }, tr("Kebijakan baru tersimpan. Pengajuan lama tetap memakai versi sebelumnya."))
             }
           />
         )}
         {modal === "detail" && (
           <Modal
-            title={detail?.campaign?.name ?? "Detail kampanye"}
+            title={detail?.campaign?.name ?? tr("Detail kampanye")}
             close={() => {
               setModal("");
               setDetail(null);
@@ -1794,20 +1946,22 @@ export default function Home() {
             wide
           >
             {!detail ? (
-              <p>Memuat…</p>
+              <p>{tr("Memuat\u2026")}</p>
             ) : (
               <>
                 <div className="detail-summary">
                   <Badge status={detail.campaign.status} />
                   <span className="mono">
-                    {detail.campaign.id} · v{detail.campaign.version}
+                    {detail.campaign.id}
+                    {tr(" \u00B7 v")}
+                    {detail.campaign.version}
                   </span>
                 </div>
                 {detail.staleReview && (
                   <div className="alert error" role="alert">
-                    Kampanye atau tingkat persetujuan sudah berubah. Tutup
-                    detail ini dan buka kembali untuk meninjau informasi
-                    terbaru.
+                    {tr(
+                      "Kampanye atau tingkat persetujuan sudah berubah. Tutup detail ini dan buka kembali untuk meninjau informasi terbaru.",
+                    )}
                   </div>
                 )}
                 {(can("campaigns:manage") || can("campaigns:create")) &&
@@ -1845,7 +1999,7 @@ export default function Home() {
                               setModal("revision");
                             }}
                           >
-                            Revisi kampanye
+                            {tr("Revisi kampanye")}
                           </button>
                         )}
                       {can("campaigns:manage") &&
@@ -1862,7 +2016,7 @@ export default function Home() {
                               setModal("control");
                             }}
                           >
-                            Jeda kampanye
+                            {tr("Jeda kampanye")}
                           </button>
                         )}
                       {can("campaigns:manage") &&
@@ -1877,7 +2031,7 @@ export default function Home() {
                               setModal("control");
                             }}
                           >
-                            Lanjutkan kampanye
+                            {tr("Lanjutkan kampanye")}
                           </button>
                         )}
                       {can("campaigns:manage") && (
@@ -1891,29 +2045,29 @@ export default function Home() {
                             setModal("control");
                           }}
                         >
-                          Hentikan kampanye
+                          {tr("Hentikan kampanye")}
                         </button>
                       )}
                     </div>
                   )}
                 <div className="info-strip">
                   <ShieldCheck size={18} />
-                  Simulasi lokal.{" "}
+                  {tr("Uji pengiriman.")}{" "}
                   {can("budgets:read") && (
                     <>
-                      Batas disetujui:{" "}
+                      {tr("Batas disetujui:")}{" "}
                       {money(detail.campaign.definition.spendingCeiling)} ·{" "}
                     </>
                   )}
                   {detail.campaign.message_count ??
                     detail.campaign.snapshot?.length ??
                     0}{" "}
-                  pesan.
+                  {tr("pesan.")}
                 </div>
                 {detail.campaign.snapshot?.[0] && (
                   <blockquote>{detail.campaign.snapshot[0].body}</blockquote>
                 )}
-                <h3>Persetujuan</h3>
+                <h3>{tr("Persetujuan")}</h3>
                 <ol className="policy-list">
                   {detail.campaign.approval_policy?.stages.map(
                     (s: Row, i: number) => {
@@ -1929,8 +2083,8 @@ export default function Home() {
                             {result
                               ? `${result.decision} · ${result.actor_name}${result.reason ? ` · ${result.reason}` : ""}`
                               : i === detail.campaign.approval_stage
-                                ? "Menunggu keputusan"
-                                : "Belum diproses"}
+                                ? tr("Menunggu keputusan")
+                                : tr("Belum diproses")}
                           </small>
                         </li>
                       );
@@ -1940,23 +2094,25 @@ export default function Home() {
                 {!!detail.approvals.length && (
                   <details className="approval-history">
                     <summary>
-                      Riwayat keputusan semua versi ({detail.approvals.length})
+                      {tr("Riwayat keputusan semua versi (")}
+                      {detail.approvals.length})
                     </summary>
                     <div className="table-wrap">
                       <table>
                         <thead>
                           <tr>
-                            <th>Versi / tingkat</th>
-                            <th>Keputusan</th>
-                            <th>Pengguna</th>
-                            <th>Waktu / alasan</th>
+                            <th>{tr("Versi / tingkat")}</th>
+                            <th>{tr("Keputusan")}</th>
+                            <th>{tr("Pengguna")}</th>
+                            <th>{tr("Waktu / alasan")}</th>
                           </tr>
                         </thead>
                         <tbody>
                           {detail.approvals.map((a: Row) => (
                             <tr key={a.id}>
                               <td>
-                                v{a.version} · {a.stage + 1}
+                                {tr("v")}
+                                {a.version} · {a.stage + 1}
                               </td>
                               <td>{a.decision}</td>
                               <td>{a.actor_name}</td>
@@ -1984,11 +2140,11 @@ export default function Home() {
                               "POST",
                               {},
                             ),
-                          "Kampanye diajukan.",
+                          tr("Kampanye diajukan."),
                         )
                       }
                     >
-                      Ajukan persetujuan
+                      {tr("Ajukan persetujuan")}
                     </button>
                   )}
                 {detail.campaign.status === "PENDING_APPROVAL" &&
@@ -2017,19 +2173,23 @@ export default function Home() {
                           setDetail(
                             await api(`campaigns/${detail.campaign.id}`),
                           );
-                        }, "Keputusan tersimpan.");
+                        }, tr("Keputusan tersimpan."));
                       }}
                     >
-                      <Field label="Keputusan">
-                        <select name="decision">
-                          <option value="APPROVE">Setujui</option>
+                      <Field label={tr("Keputusan")}>
+                        <Select name="decision">
+                          <option value="APPROVE">{tr("Setujui")}</option>
                           <option value="RETURN">
-                            Kembalikan untuk revisi
+                            {tr("Kembalikan untuk revisi")}
                           </option>
-                          <option value="REJECT">Tolak</option>
-                        </select>
+                          <option value="REJECT">{tr("Tolak")}</option>
+                        </Select>
                       </Field>
-                      <Field label="Catatan (wajib untuk penolakan / pengembalian)">
+                      <Field
+                        label={tr(
+                          "Catatan (wajib untuk penolakan / pengembalian)",
+                        )}
+                      >
                         <input name="reason" maxLength={1000} />
                       </Field>
                       <button
@@ -2037,11 +2197,11 @@ export default function Home() {
                         disabled={busy || detail.staleReview}
                       >
                         <Check size={17} />
-                        Simpan keputusan
+                        {tr("Simpan keputusan")}
                       </button>
                     </form>
                   )}
-                <h3>Riwayat eksekusi</h3>
+                <h3>{tr("Riwayat eksekusi")}</h3>
                 {detail.runs.length ? (
                   <div className="run-list">
                     {detail.runs.map((r: Row) => (
@@ -2051,7 +2211,10 @@ export default function Home() {
                           <small>
                             {date(r.intended_at)}
                             {can("budgets:read") && (
-                              <> · Estimasi {money(r.estimated)}</>
+                              <>
+                                {tr(" \u00B7 Estimasi ")}
+                                {money(r.estimated)}
+                              </>
                             )}
                           </small>
                         </div>
@@ -2072,7 +2235,7 @@ export default function Home() {
                                 setModal("control");
                               }}
                             >
-                              Tinjau pemulihan
+                              {tr("Tinjau pemulihan")}
                             </button>
                           )}
                         {can("campaigns:manage") &&
@@ -2083,11 +2246,11 @@ export default function Home() {
                               onClick={() =>
                                 void perform(
                                   () => api(`runs/${r.id}/retry`, "POST", {}),
-                                  "Pemeriksaan anggaran dijalankan.",
+                                  tr("Pemeriksaan anggaran dijalankan."),
                                 )
                               }
                             >
-                              Periksa ulang
+                              {tr("Periksa ulang")}
                             </button>
                           )}
                         {can("campaigns:manage") &&
@@ -2099,7 +2262,7 @@ export default function Home() {
                                 setModal("reschedule");
                               }}
                             >
-                              Jadwalkan ulang
+                              {tr("Jadwalkan ulang")}
                             </button>
                           )}
                       </div>
@@ -2107,14 +2270,15 @@ export default function Home() {
                   </div>
                 ) : (
                   <Empty>
-                    Eksekusi dibuat setelah semua persetujuan selesai.
+                    {tr("Eksekusi dibuat setelah semua persetujuan selesai.")}
                   </Empty>
                 )}
                 <div className="section-heading">
                   <h3>
-                    Pesan{" "}
+                    {tr("Pesan")}{" "}
                     <small>
-                      ({detail.messageTotal} total · 200 per halaman)
+                      ({detail.messageTotal}
+                      {tr(" total \u00B7 200 per halaman)")}
                     </small>
                   </h3>
                   <div>
@@ -2123,14 +2287,14 @@ export default function Home() {
                       disabled={messagePage === 0}
                       onClick={() => setMessagePage(messagePage - 1)}
                     >
-                      Sebelumnya
+                      {tr("Sebelumnya")}
                     </button>
                     <button
                       className="secondary"
                       disabled={(messagePage + 1) * 200 >= detail.messageTotal}
                       onClick={() => setMessagePage(messagePage + 1)}
                     >
-                      Berikutnya
+                      {tr("Berikutnya")}
                     </button>
                   </div>
                 </div>
@@ -2139,10 +2303,10 @@ export default function Home() {
                     <table>
                       <thead>
                         <tr>
-                          <th>Penerima</th>
-                          <th>Kanal</th>
-                          <th>Status</th>
-                          {can("budgets:read") && <th>Estimasi</th>}
+                          <th>{tr("Penerima")}</th>
+                          <th>{tr("Kanal")}</th>
+                          <th>{tr("Status")}</th>
+                          {can("budgets:read") && <th>{tr("Estimasi")}</th>}
                           <th />
                         </tr>
                       </thead>
@@ -2164,10 +2328,10 @@ export default function Home() {
                                   void perform(async () => {
                                     setSelected(await api(`messages/${m.id}`));
                                     setModal("timeline");
-                                  }, "Riwayat pesan siap.")
+                                  }, tr("Riwayat pesan siap."))
                                 }
                               >
-                                Riwayat
+                                {tr("Riwayat")}
                               </button>
                             </td>
                           </tr>
@@ -2176,14 +2340,16 @@ export default function Home() {
                     </table>
                   </div>
                 ) : (
-                  <p className="hint">Belum ada pesan yang masuk antrean.</p>
+                  <p className="hint">
+                    {tr("Belum ada pesan yang masuk antrean.")}
+                  </p>
                 )}
               </>
             )}
           </Modal>
         )}
         {modal === "timeline" && selected && (
-          <Modal title="Riwayat pesan" close={() => setModal("")}>
+          <Modal title={tr("Riwayat pesan")} close={() => setModal("")}>
             <p>
               {selected.message.recipient} · {selected.message.channel}
             </p>
@@ -2202,11 +2368,14 @@ export default function Home() {
               ))}
             </div>
             <p className="hint mono">
-              Provider: {selected.message.provider_ref ?? "Belum tersedia"}
+              {tr("Provider: ")}
+              {selected.message.provider_ref ?? tr("Belum tersedia")}
             </p>
             <p className="hint">
-              {selected.attempts.length} percobaan · Simulasi lokal. UNKNOWN
-              memerlukan pemeriksaan; tidak dikirim ulang otomatis.
+              {selected.attempts.length}
+              {tr(
+                " percobaan \u00B7 Uji pengiriman. UNKNOWN memerlukan pemeriksaan; tidak dikirim ulang otomatis.",
+              )}
             </p>
             {selected.message.status === "UNKNOWN" && can("budgets:write") && (
               <form
@@ -2221,25 +2390,26 @@ export default function Home() {
                       { status: f.get("status"), reason: f.get("reason") },
                     );
                     setSelected(await api(`messages/${selected.message.id}`));
-                  }, "Hasil simulasi dan biaya telah direkonsiliasi.");
+                  }, tr("Hasil simulasi dan biaya telah direkonsiliasi."));
                 }}
               >
-                <h3>Rekonsiliasi hasil simulasi</h3>
+                <h3>{tr("Rekonsiliasi hasil simulasi")}</h3>
                 <p className="hint">
-                  Konfirmasi hasil setelah pemeriksaan. Pesan tidak dikirim
-                  ulang.
+                  {tr(
+                    "Konfirmasi hasil setelah pemeriksaan. Pesan tidak dikirim ulang.",
+                  )}
                 </p>
-                <Field label="Hasil terkonfirmasi">
-                  <select name="status">
+                <Field label={tr("Hasil terkonfirmasi")}>
+                  <Select name="status">
                     <option value="DELIVERED">
-                      Tersampaikan — catat biaya demo
+                      {tr("Tersampaikan \u2014 catat biaya demo")}
                     </option>
                     <option value="FAILED">
-                      Gagal — lepaskan cadangan demo
+                      {tr("Gagal \u2014 lepaskan cadangan demo")}
                     </option>
-                  </select>
+                  </Select>
                 </Field>
-                <Field label="Alasan pemeriksaan">
+                <Field label={tr("Alasan pemeriksaan")}>
                   <textarea
                     name="reason"
                     required
@@ -2248,7 +2418,7 @@ export default function Home() {
                   />
                 </Field>
                 <button className="primary" disabled={busy}>
-                  Konfirmasi hasil simulasi
+                  {tr("Konfirmasi hasil simulasi")}
                 </button>
               </form>
             )}
@@ -2256,7 +2426,7 @@ export default function Home() {
         )}
         {modal === "reschedule" && selected && (
           <Modal
-            title="Jadwalkan ulang secara eksplisit"
+            title={tr("Jadwalkan ulang secara eksplisit")}
             close={() => setModal("")}
           >
             <form
@@ -2268,14 +2438,14 @@ export default function Home() {
                     date: new Date(String(f.get("date"))).toISOString(),
                   });
                   setModal("");
-                }, "Jadwal baru dibuat. Riwayat lama tetap tersimpan.");
+                }, tr("Jadwal baru dibuat. Riwayat lama tetap tersimpan."));
               }}
             >
-              <Field label="Waktu baru (zona waktu komputer Anda)">
+              <Field label={tr("Waktu baru (zona waktu komputer Anda)")}>
                 <input name="date" type="datetime-local" required />
               </Field>
               <button className="primary full" disabled={busy}>
-                Buat jadwal baru
+                {tr("Buat jadwal baru")}
               </button>
             </form>
           </Modal>
@@ -2284,20 +2454,28 @@ export default function Home() {
           <Modal
             title={
               selected.controlAction === "recover"
-                ? "Putuskan pemulihan eksekusi"
-                : "Kelola kampanye"
+                ? tr("Putuskan pemulihan eksekusi")
+                : tr("Kelola kampanye")
             }
             close={() => setModal("")}
           >
             <p>{selected.name}</p>
             <div className="info-strip">
               {selected.controlAction === "cancel"
-                ? "Pesan yang belum diproses akan dihentikan dan cadangannya dilepas. Hasil dan biaya pesan yang sudah diproses tetap tersimpan."
+                ? tr(
+                    "Pesan yang belum diproses akan dihentikan dan cadangannya dilepas. Hasil dan biaya pesan yang sudah diproses tetap tersimpan.",
+                  )
                 : selected.controlAction === "recover"
-                  ? "Hanya sisa pesan yang belum diproses akan dilanjutkan. Pesan yang terkirim atau belum terkonfirmasi tidak dikirim ulang. Jadwal yang terlewat menggunakan alur penjadwalan ulang terpisah."
+                  ? tr(
+                      "Hanya sisa pesan yang belum diproses akan dilanjutkan. Pesan yang terkirim atau belum terkonfirmasi tidak dikirim ulang. Jadwal yang terlewat menggunakan alur penjadwalan ulang terpisah.",
+                    )
                   : selected.controlAction === "pause"
-                    ? "Pengiriman baru dijeda. Cadangan anggaran tetap disimpan."
-                    : "Sisa pesan dari eksekusi yang dijeda akan dilanjutkan; jadwal yang sudah lewat tidak dikirim sebagai backlog."}
+                    ? tr(
+                        "Pengiriman baru dijeda. Cadangan anggaran tetap disimpan.",
+                      )
+                    : tr(
+                        "Sisa pesan dari eksekusi yang dijeda akan dilanjutkan; jadwal yang sudah lewat tidak dikirim sebagai backlog.",
+                      )}
             </div>
             <form
               onSubmit={(e) => {
@@ -2312,10 +2490,10 @@ export default function Home() {
                     { action: selected.controlAction, reason: f.get("reason") },
                   );
                   setModal("");
-                }, "Keputusan tersimpan.");
+                }, tr("Keputusan tersimpan."));
               }}
             >
-              <Field label="Alasan tindakan">
+              <Field label={tr("Alasan tindakan")}>
                 <textarea
                   name="reason"
                   required
@@ -2324,14 +2502,14 @@ export default function Home() {
                 />
               </Field>
               <button className="primary full" disabled={busy}>
-                Konfirmasi{" "}
+                {tr("Konfirmasi")}{" "}
                 {selected.controlAction === "recover"
-                  ? "lanjutkan sisa pesan"
+                  ? tr("lanjutkan sisa pesan")
                   : selected.controlAction === "cancel"
-                    ? "hentikan"
+                    ? tr("hentikan")
                     : selected.controlAction === "pause"
-                      ? "jeda"
-                      : "lanjutkan"}
+                      ? tr("jeda")
+                      : tr("lanjutkan")}
               </button>
             </form>
           </Modal>
@@ -2340,7 +2518,6 @@ export default function Home() {
     </DialogErrorContext.Provider>
   );
 }
-
 function CampaignForm({
   data,
   initialCampaign,
@@ -2381,7 +2558,7 @@ function CampaignForm({
       })
       .catch(() =>
         setFormError(
-          "Konfigurasi penyedia belum dapat dimuat. Tutup dan coba lagi.",
+          tr("Konfigurasi penyedia belum dapat dimuat. Tutup dan coba lagi."),
         ),
       );
   }, []);
@@ -2407,7 +2584,9 @@ function CampaignForm({
     } catch {
       if (request === sourceRequest.current)
         setFormError(
-          "Sumber data tidak dapat dimuat. Pilih kembali sumber yang tersedia.",
+          tr(
+            "Sumber data tidak dapat dimuat. Pilih kembali sumber yang tersedia.",
+          ),
         );
     }
   };
@@ -2420,7 +2599,9 @@ function CampaignForm({
           .map((id) => api(`templates/${id}`)),
       )
         .then((rows) => setCatalog((previous) => [...previous, ...rows]))
-        .catch(() => setFormError("Template versi lama tidak dapat dimuat."));
+        .catch(() =>
+          setFormError(tr("Template versi lama tidak dapat dimuat.")),
+        );
     }
     return () => {
       sourceRequest.current++;
@@ -2461,7 +2642,7 @@ function CampaignForm({
   );
   return (
     <Modal
-      title={initialCampaign ? "Revisi kampanye" : "Buat kampanye"}
+      title={initialCampaign ? tr("Revisi kampanye") : tr("Buat kampanye")}
       close={close}
       wide
     >
@@ -2507,41 +2688,42 @@ function CampaignForm({
       >
         <div className="form-step">
           <span>1</span>
-          <h3>Nama dan penerima</h3>
+          <h3>{tr("Nama dan penerima")}</h3>
         </div>
         <div className="form-grid">
-          <Field label="Nama kampanye">
+          <Field label={tr("Nama kampanye")}>
             <input
               name="name"
               required
               minLength={3}
-              placeholder="Contoh: Pengingat November"
+              placeholder={tr("Contoh: Pengingat November")}
               defaultValue={initial?.name ?? initialCampaign?.name ?? ""}
             />
           </Field>
-          <Field label="Sumber data">
-            <select
+          <Field label={tr("Sumber data")}>
+            <Select
               name="datasetId"
               required
               value={sourceId}
               onChange={(e) => void loadDataset(e.target.value)}
             >
               <option value="" disabled>
-                Pilih sumber
+                {tr("Pilih sumber")}
               </option>
               {sources
                 .filter((d) => d.team_id === targetTeam)
                 .map((d) => (
                   <option key={d.id} value={d.id}>
-                    {d.name} · {d.row_count} baris
+                    {d.name} · {d.row_count}
+                    {tr(" baris")}
                   </option>
                 ))}
-            </select>
+            </Select>
           </Field>
         </div>
         <div className="form-step">
           <span>2</span>
-          <h3>Pilih kanal dan template</h3>
+          <h3>{tr("Pilih kanal dan template")}</h3>
         </div>
         <div className="template-choices">
           {catalog
@@ -2571,43 +2753,47 @@ function CampaignForm({
                 />
                 <b>{t.channel}</b>
                 <small>
-                  {t.name} · v{t.version}
+                  {t.name}
+                  {tr(" \u00B7 v")}
+                  {t.version}
                 </small>
               </label>
             ))}
         </div>
-        <Field label="Akun penyedia">
-          <select
+        <Field label={tr("Akun penyedia")}>
+          <Select
             value={providerId}
             onChange={(e) => setProviderId(e.target.value)}
           >
-            <option value="">Simulator bawaan (tarif demo)</option>
+            <option value="">{tr("Simulator bawaan (tarif demo)")}</option>
             {providerData.accounts
               .filter((a) => a.enabled && a.simulated)
               .map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.name} · v{a.version}
+                  {a.name}
+                  {tr(" \u00B7 v")}
+                  {a.version}
                 </option>
               ))}
-          </select>
+          </Select>
         </Field>
         {vars.length > 0 && (
           <div className="form-grid">
             {vars.map((v) => (
-              <Field key={v} label={`Variabel ${v}`}>
-                <select
+              <Field key={v} label={tr("Variabel {0}", { "0": v })}>
+                <Select
                   value={fieldMap[v] ?? v}
                   onChange={(e) =>
                     setFieldMap({ ...fieldMap, [v]: e.target.value })
                   }
                 >
                   {!columns.includes(v) && (
-                    <option value={v}>Pilih kolom…</option>
+                    <option value={v}>{tr("Pilih kolom\u2026")}</option>
                   )}
                   {columns.map((c) => (
                     <option key={c}>{c}</option>
                   ))}
-                </select>
+                </Select>
               </Field>
             ))}
           </div>
@@ -2616,32 +2802,36 @@ function CampaignForm({
           templates.map((t) => (
             <div className="message-preview" key={t.id}>
               <small>
-                PRATINJAU · {t.channel.toUpperCase()} · BARIS PERTAMA
+                {tr("PRATINJAU \u00B7 ")}
+                {t.channel.toUpperCase()}
+                {tr(" \u00B7 BARIS PERTAMA")}
               </small>
               <p>
                 {t.body.replace(
                   /\{\{\s*([a-zA-Z_][\w]*)\s*\}\}/g,
                   (_: string, key: string) =>
                     dataset.rows[0]?.[fieldMap[key] ?? key] ??
-                    `[${key} belum diisi]`,
+                    tr("[{0} belum diisi]", { "0": key }),
                 )}
               </p>
             </div>
           ))}
         <div className="form-step">
           <span>3</span>
-          <h3>Waktu dan anggaran</h3>
+          <h3>{tr("Waktu dan anggaran")}</h3>
         </div>
         <div className="form-grid">
-          <Field label="Pengiriman">
-            <select value={mode} onChange={(e) => setMode(e.target.value)}>
-              <option value="immediate">Segera setelah disetujui</option>
-              <option value="once">Satu kali terjadwal</option>
-              <option value="recurring">Berulang</option>
-            </select>
+          <Field label={tr("Pengiriman")}>
+            <Select value={mode} onChange={(e) => setMode(e.target.value)}>
+              <option value="immediate">
+                {tr("Segera setelah disetujui")}
+              </option>
+              <option value="once">{tr("Satu kali terjadwal")}</option>
+              <option value="recurring">{tr("Berulang")}</option>
+            </Select>
           </Field>
-          <Field label="Pusat biaya">
-            <select
+          <Field label={tr("Pusat biaya")}>
+            <Select
               name="costCentreId"
               required
               defaultValue={initial?.costCentreId}
@@ -2653,10 +2843,10 @@ function CampaignForm({
                     {b.name}
                   </option>
                 ))}
-            </select>
+            </Select>
           </Field>
           {mode !== "immediate" && (
-            <Field label="Mulai (sesuai zona waktu kampanye)">
+            <Field label={tr("Mulai (sesuai zona waktu kampanye)")}>
               <input
                 name="scheduledAt"
                 type="datetime-local"
@@ -2672,21 +2862,29 @@ function CampaignForm({
             </Field>
           )}
           {mode !== "immediate" && (
-            <Field label="Zona waktu kampanye">
-              <select
+            <Field label={tr("Zona waktu kampanye")}>
+              <Select
                 value={timeZone}
                 onChange={(e) => setTimeZone(e.target.value)}
               >
-                <option value="Asia/Jakarta">WIB · Asia/Jakarta</option>
-                <option value="Asia/Makassar">WITA · Asia/Makassar</option>
-                <option value="Asia/Jayapura">WIT · Asia/Jayapura</option>
-                <option value="UTC">UTC</option>
-              </select>
+                <option value="Asia/Jakarta">
+                  {tr("WIB \u00B7 Asia/Jakarta")}
+                </option>
+                <option value="Asia/Makassar">
+                  {tr("WITA \u00B7 Asia/Makassar")}
+                </option>
+                <option value="Asia/Jayapura">
+                  {tr("WIT \u00B7 Asia/Jayapura")}
+                </option>
+                <option value="UTC">{tr("UTC")}</option>
+              </Select>
             </Field>
           )}
           <Field
-            label="Batas biaya per eksekusi (IDR)"
-            hint="Mencakup seluruh kanal; tarif demo. SMS panjang dihitung per segmen."
+            label={tr("Batas biaya per eksekusi (IDR)")}
+            hint={tr(
+              "Mencakup seluruh kanal; tarif demo. SMS panjang dihitung per segmen.",
+            )}
           >
             <input
               name="ceiling"
@@ -2700,17 +2898,17 @@ function CampaignForm({
         </div>
         {mode === "recurring" && (
           <div className="form-grid">
-            <Field label="Pola">
-              <select
+            <Field label={tr("Pola")}>
+              <Select
                 name="frequency"
                 defaultValue={initial?.recurrence?.frequency ?? "daily"}
               >
-                <option value="daily">Harian</option>
-                <option value="weekly">Mingguan</option>
-                <option value="monthly">Bulanan</option>
-              </select>
+                <option value="daily">{tr("Harian")}</option>
+                <option value="weekly">{tr("Mingguan")}</option>
+                <option value="monthly">{tr("Bulanan")}</option>
+              </Select>
             </Field>
-            <Field label="Interval">
+            <Field label={tr("Interval")}>
               <input
                 name="interval"
                 type="number"
@@ -2719,7 +2917,7 @@ function CampaignForm({
                 defaultValue={initial?.recurrence?.interval ?? 1}
               />
             </Field>
-            <Field label="Jumlah eksekusi">
+            <Field label={tr("Jumlah eksekusi")}>
               <input
                 name="count"
                 type="number"
@@ -2733,18 +2931,26 @@ function CampaignForm({
         <div className="review-strip">
           <ShieldCheck size={23} />
           <div>
-            <b>{data.policy.stages.length} tingkat persetujuan diperlukan</b>
+            <b>
+              {data.policy.stages.length}
+              {tr(" tingkat persetujuan diperlukan")}
+            </b>
             <p>
-              {dataset?.row_count ?? 0} penerima × {templateIds.length} kanal ·
-              Estimasi awal {money(estimate)}. Validasi server memeriksa biaya
-              dan data sebelum pengajuan.
-              {mode === "recurring" ? " Seri disetujui satu kali." : ""}
+              {dataset?.row_count ?? 0}
+              {tr(" penerima \u00D7 ")}
+              {templateIds.length}
+              {tr(" kanal \u00B7 Estimasi awal ")}
+              {money(estimate)}
+              {tr(
+                ". Validasi server memeriksa biaya dan data sebelum pengajuan.",
+              )}
+              {mode === "recurring" ? tr(" Seri disetujui satu kali.") : ""}
             </p>
           </div>
         </div>
         <div className="modal-actions">
           <button type="button" className="secondary" onClick={close}>
-            Batal
+            {tr("Batal")}
           </button>
           <button
             className="primary"
@@ -2760,7 +2966,8 @@ function CampaignForm({
                 ))
             }
           >
-            Ajukan persetujuan <ArrowUpRight size={17} />
+            {tr("Ajukan persetujuan ")}
+            <ArrowUpRight size={17} />
           </button>
         </div>
       </form>
@@ -2780,10 +2987,11 @@ function PolicyForm({
 }) {
   const [stages, setStages] = useState<Row[]>(data.policy.stages);
   return (
-    <Modal title="Atur tingkat persetujuan" close={close}>
+    <Modal title={tr("Atur tingkat persetujuan")} close={close}>
       <p>
-        Kebijakan baru berlaku untuk pengajuan berikutnya. Pembuat tidak dapat
-        menyetujui kampanye sendiri.
+        {tr(
+          "Kebijakan baru berlaku untuk pengajuan berikutnya. Pembuat tidak dapat menyetujui kampanye sendiri.",
+        )}
       </p>
       <form
         onSubmit={(e) => {
@@ -2793,7 +3001,7 @@ function PolicyForm({
       >
         {stages.map((s, i) => (
           <div className="policy-edit" key={i}>
-            <Field label={`Tingkat ${i + 1}`}>
+            <Field label={tr("Tingkat {0}", { "0": i + 1 })}>
               <input
                 required
                 minLength={2}
@@ -2807,8 +3015,8 @@ function PolicyForm({
                 }
               />
             </Field>
-            <Field label="Peran yang dapat menyetujui">
-              <select
+            <Field label={tr("Peran yang dapat menyetujui")}>
+              <Select
                 multiple
                 required
                 value={s.roleIds}
@@ -2834,7 +3042,7 @@ function PolicyForm({
                       {r.name}
                     </option>
                   ))}
-              </select>
+              </Select>
             </Field>
             {stages.length > 1 && (
               <button
@@ -2842,7 +3050,7 @@ function PolicyForm({
                 className="text-btn"
                 onClick={() => setStages(stages.filter((_, n) => n !== i))}
               >
-                Hapus tingkat
+                {tr("Hapus tingkat")}
               </button>
             )}
           </div>
@@ -2853,15 +3061,18 @@ function PolicyForm({
           onClick={() =>
             setStages([
               ...stages,
-              { name: `Tingkat ${stages.length + 1}`, roleIds: [] },
+              {
+                name: tr("Tingkat {0}", { "0": stages.length + 1 }),
+                roleIds: [],
+              },
             ])
           }
         >
           <Plus size={16} />
-          Tambah tingkat
+          {tr("Tambah tingkat")}
         </button>
         <button className="primary full" disabled={busy}>
-          Simpan kebijakan
+          {tr("Simpan kebijakan")}
         </button>
       </form>
     </Modal>

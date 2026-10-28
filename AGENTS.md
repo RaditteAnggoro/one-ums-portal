@@ -10,6 +10,6 @@ Use Node.js 24+ and the pnpm version pinned in package.json. Prefer an existing 
 
 Commands (once dependencies are installed): pnpm typecheck; pnpm test; pnpm build. Development: pnpm infra:local, pnpm db:setup, pnpm dev. The embedded local PostgreSQL is a real native PostgreSQL server; normal deployments can supply DATABASE_URL. Redis/BullMQ require a real Redis service. Never describe queue tests as passed without running against it.
 
-Keep API secrets and generated .data/.runtime files out of source control. Bind local services to loopback. Use synthetic demonstration data and separate creator/approver accounts. UI language starts with Bahasa Indonesia and supports English later.
+Keep API secrets and generated .data/.runtime files out of source control. Bind local services to loopback. Use synthetic demonstration data and separate creator/approver accounts. UI language supports Bahasa Indonesia and English through the shared catalog and saved account preference. Keep user-authored content unchanged.
 
 The UMS design reference is docs/ui-ux-specification.md; implementation mapping is docs/ui-implementation.md. Preserve the purple shared shell, themes, real operational routes and server-side message access controls. Keep NestJS as the existing authoritative TypeScript API. The reference mentions Spring Boot as a proposed integration, not an instruction to rewrite the backend during a UI task.

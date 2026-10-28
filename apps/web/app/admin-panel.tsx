@@ -1,4 +1,6 @@
 "use client";
+import { Select } from "./components/select";
+import { t as tr } from "./components/i18n";
 import { useEffect, useState, type ReactNode } from "react";
 import { Plus, Users, ShieldCheck } from "lucide-react";
 type Row = Record<string, any>;
@@ -15,7 +17,7 @@ export function AdminPanel({
   const [busy, setBusy] = useState(false);
   const refresh = async () => setData(await request("admin/workspace"));
   useEffect(() => {
-    void perform(refresh, "Administrasi siap.");
+    void perform(refresh, tr("Administrasi siap."));
   }, []);
   const submit = async (
     event: React.FormEvent<HTMLFormElement>,
@@ -31,7 +33,7 @@ export function AdminPanel({
         await request(`admin/${path}`, "POST", values);
         form.reset();
         await refresh();
-      }, "Pengaturan perusahaan tersimpan.");
+      }, tr("Pengaturan perusahaan tersimpan."));
     } finally {
       setBusy(false);
     }
@@ -45,7 +47,7 @@ export function AdminPanel({
   if (!data)
     return (
       <section className="panel settings-panel">
-        <p>Memuat administrasi perusahaan…</p>
+        <p>{tr("Memuat administrasi perusahaan\u2026")}</p>
       </section>
     );
   return (
@@ -53,15 +55,15 @@ export function AdminPanel({
       <div className="panel-heading">
         <h3>
           <Users size={18} />
-          Administrasi perusahaan
+          {tr("Administrasi perusahaan")}
         </h3>
       </div>
       <div className="admin-tabs">
         {[
-          ["users", "Pengguna"],
-          ["roles", "Peran"],
-          ["teams", "Tim"],
-          ["cost-centres", "Pusat biaya"],
+          ["users", tr("Pengguna")],
+          ["roles", tr("Peran")],
+          ["teams", tr("Tim")],
+          ["cost-centres", tr("Pusat biaya")],
         ].map(([id, label]) => (
           <button
             key={id}
@@ -78,10 +80,10 @@ export function AdminPanel({
             <table>
               <thead>
                 <tr>
-                  <th>Pengguna</th>
-                  <th>Tim</th>
-                  <th>Peran</th>
-                  <th>Status</th>
+                  <th>{tr("Pengguna")}</th>
+                  <th>{tr("Tim")}</th>
+                  <th>{tr("Peran")}</th>
+                  <th>{tr("Status")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -105,12 +107,12 @@ export function AdminPanel({
                               roleId: u.role_id,
                             });
                             await refresh();
-                          }, "Akses pengguna diperbarui; sesi lama telah berakhir.")
+                          }, tr("Akses pengguna diperbarui; sesi lama telah berakhir."))
                         }
                       >
                         {u.active
-                          ? "Aktif · nonaktifkan"
-                          : "Nonaktif · aktifkan"}
+                          ? tr("Aktif \u00B7 nonaktifkan")
+                          : tr("Nonaktif \u00B7 aktifkan")}
                       </button>
                     </td>
                   </tr>
@@ -130,30 +132,30 @@ export function AdminPanel({
               }))
             }
           >
-            <h3>Tambahkan pengguna</h3>
+            <h3>{tr("Tambahkan pengguna")}</h3>
             <div className="form-grid">
               {field(
-                "Nama",
+                tr("Nama"),
                 <input
-                  aria-label="Nama pengguna"
+                  aria-label={tr("Nama pengguna")}
                   name="name"
                   required
                   minLength={2}
                 />,
               )}
               {field(
-                "Email",
+                tr("Email"),
                 <input
-                  aria-label="Email pengguna"
+                  aria-label={tr("Email pengguna")}
                   name="email"
                   type="email"
                   required
                 />,
               )}
               {field(
-                "Kata sandi awal",
+                tr("Kata sandi awal"),
                 <input
-                  aria-label="Kata sandi awal"
+                  aria-label={tr("Kata sandi awal")}
                   name="password"
                   type="password"
                   required
@@ -162,29 +164,29 @@ export function AdminPanel({
                 />,
               )}
               {field(
-                "Tim",
-                <select aria-label="Tim pengguna" name="team">
+                tr("Tim"),
+                <Select aria-label={tr("Tim pengguna")} name="team">
                   {data.teams.map((t: Row) => (
                     <option key={t.id} value={t.id}>
                       {t.name}
                     </option>
                   ))}
-                </select>,
+                </Select>,
               )}
               {field(
-                "Peran",
-                <select aria-label="Peran pengguna" name="role">
+                tr("Peran"),
+                <Select aria-label={tr("Peran pengguna")} name="role">
                   {data.roles.map((r: Row) => (
                     <option key={r.id} value={r.id}>
                       {r.name}
                     </option>
                   ))}
-                </select>,
+                </Select>,
               )}
             </div>
             <button className="primary" disabled={busy}>
               <Plus size={16} />
-              Tambah pengguna
+              {tr("Tambah pengguna")}
             </button>
           </form>
         </>
@@ -197,8 +199,11 @@ export function AdminPanel({
                 <ShieldCheck size={18} />
                 <b>{r.name}</b>
                 <small>
-                  {r.company_scope ? "Seluruh perusahaan" : "Tim sendiri"} ·{" "}
-                  {r.permissions.length} izin
+                  {r.company_scope
+                    ? tr("Seluruh perusahaan")
+                    : tr("Tim sendiri")}{" "}
+                  · {r.permissions.length}
+                  {tr(" izin")}
                 </small>
               </div>
             ))}
@@ -212,22 +217,22 @@ export function AdminPanel({
               }))
             }
           >
-            <h3>Peran baru</h3>
+            <h3>{tr("Peran baru")}</h3>
             {field(
-              "Nama peran",
+              tr("Nama peran"),
               <input
-                aria-label="Nama peran"
+                aria-label={tr("Nama peran")}
                 name="name"
                 required
                 minLength={2}
               />,
             )}
             {field(
-              "Cakupan data",
-              <select aria-label="Cakupan data" name="scope">
-                <option value="team">Tim sendiri</option>
-                <option value="company">Seluruh perusahaan</option>
-              </select>,
+              tr("Cakupan data"),
+              <Select aria-label={tr("Cakupan data")} name="scope">
+                <option value="team">{tr("Tim sendiri")}</option>
+                <option value="company">{tr("Seluruh perusahaan")}</option>
+              </Select>,
             )}
             <div className="permission-grid">
               {data.permissionCatalog.map((p: string) => (
@@ -238,7 +243,7 @@ export function AdminPanel({
               ))}
             </div>
             <button className="primary" disabled={busy}>
-              Simpan peran
+              {tr("Simpan peran")}
             </button>
           </form>
         </div>
@@ -259,16 +264,16 @@ export function AdminPanel({
             }
           >
             {field(
-              "Nama tim baru",
+              tr("Nama tim baru"),
               <input
-                aria-label="Nama tim baru"
+                aria-label={tr("Nama tim baru")}
                 name="name"
                 required
                 minLength={2}
               />,
             )}
             <button className="primary" disabled={busy}>
-              Tambah tim
+              {tr("Tambah tim")}
             </button>
           </form>
         </div>
@@ -294,26 +299,26 @@ export function AdminPanel({
             }
           >
             {field(
-              "Nama pusat biaya",
+              tr("Nama pusat biaya"),
               <input
-                aria-label="Nama pusat biaya"
+                aria-label={tr("Nama pusat biaya")}
                 name="name"
                 required
                 minLength={2}
               />,
             )}
             {field(
-              "Tim pemilik",
-              <select aria-label="Tim pusat biaya" name="team">
+              tr("Tim pemilik"),
+              <Select aria-label={tr("Tim pusat biaya")} name="team">
                 {data.teams.map((t: Row) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
                   </option>
                 ))}
-              </select>,
+              </Select>,
             )}
             <button className="primary" disabled={busy}>
-              Tambah pusat biaya
+              {tr("Tambah pusat biaya")}
             </button>
           </form>
         </div>

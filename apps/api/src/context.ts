@@ -18,11 +18,12 @@ export type Actor = {
   name: string;
   permissions: string[];
   company_scope: boolean;
+  platform_admin: boolean;
   role: string;
   company: string;
   profile: Record<string, unknown>;
-  company_dashboard:Record<string,unknown>;
-  role_dashboard:Record<string,unknown>|null;
+  company_dashboard: Record<string, unknown>;
+  role_dashboard: Record<string, unknown> | null;
   ip: string;
   correlationId: string;
   session_ref?: string;
@@ -36,7 +37,7 @@ export async function actorFor(
     throw new UnauthorizedException("Silakan masuk terlebih dahulu.");
   const { rows } = await pool.query(
     `SELECT u.id,u.company_id,u.team_id,u.role_id,u.email,u.name,u.profile,
-    r.name AS role,r.permissions,r.company_scope,r.dashboard_defaults AS role_dashboard,c.dashboard_defaults AS company_dashboard,c.name AS company FROM sessions s
+    EXISTS(SELECT 1 FROM platform_administrators pa WHERE pa.user_id=u.id) AS platform_admin,r.name AS role,r.permissions,r.company_scope,r.dashboard_defaults AS role_dashboard,c.dashboard_defaults AS company_dashboard,c.name AS company FROM sessions s
     JOIN users u ON u.id=s.user_id JOIN roles r ON r.id=u.role_id AND r.company_id=u.company_id
     JOIN companies c ON c.id=u.company_id WHERE s.token_hash=$1 AND s.expires_at>now() AND u.active`,
     [tokenHash(token)],

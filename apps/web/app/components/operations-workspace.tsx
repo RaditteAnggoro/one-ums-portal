@@ -1,4 +1,6 @@
 "use client";
+import { Select } from "./select";
+import { t as tr, localeTag } from "./i18n";
 import { useEffect, useState } from "react";
 import {
   ArrowDownRight,
@@ -31,20 +33,21 @@ import Decimal from "decimal.js";
 type Row = Record<string, any>;
 type Api = (path: string, method?: string, body?: unknown) => Promise<any>;
 export const formatMoney = (value: string | number) =>
-  new Intl.NumberFormat("id-ID", {
+  new Intl.NumberFormat(localeTag(), {
     style: "currency",
     currency: "IDR",
     maximumFractionDigits: 2,
   }).format(Number(value));
-const number = (value: number) => new Intl.NumberFormat("id-ID").format(value);
+const number = (value: number) =>
+  new Intl.NumberFormat(localeTag()).format(value);
 const timestamp = (value: string | null | undefined) =>
   value
-    ? new Intl.DateTimeFormat("id-ID", {
+    ? new Intl.DateTimeFormat(localeTag(), {
         dateStyle: "medium",
         timeStyle: "medium",
         timeZone: "Asia/Jakarta",
       }).format(new Date(value))
-    : "Tidak tersedia";
+    : tr("Tidak tersedia");
 const channelNames: Row = {
   email: "Email",
   sms: "SMS",
@@ -66,7 +69,7 @@ function Channel({ value }: { value: string }) {
   return (
     <span className={`channel-label channel-${value}`}>
       <Icon size={15} />
-      {channelNames[value] ?? value}
+      {tr(channelNames[value] ?? value)}
     </span>
   );
 }
@@ -74,7 +77,7 @@ export function StatusBadge({ status }: { status: string }) {
   return (
     <span className={`badge ${status.toLowerCase()}`}>
       <span className="badge-dot" />
-      {statusNames[status] ?? status}
+      {tr(statusNames[status] ?? status)}
     </span>
   );
 }
@@ -121,16 +124,20 @@ function State({
     return (
       <div role="alert" className="ops-state error">
         <AlertCircle size={25} />
-        <h3>Data belum dapat dimuat</h3>
-        <p>{error}</p>
+        <h3>{tr("Data belum dapat dimuat")}</h3>
+        <p>{tr(error)}</p>
         <button className="secondary" onClick={retry}>
-          Coba lagi
+          {tr("Coba lagi")}
         </button>
       </div>
     );
   if (loading)
     return (
-      <div className="ops-skeleton" role="status" aria-label="Memuat data">
+      <div
+        className="ops-skeleton"
+        role="status"
+        aria-label={tr("Memuat data")}
+      >
         <span />
         <span />
         <span />
@@ -139,9 +146,11 @@ function State({
   return (
     <div className="ops-state">
       <MessagesSquare size={28} />
-      <h3>{empty ?? "Belum ada data pada periode ini"}</h3>
+      <h3>{empty ?? tr("Belum ada data pada periode ini")}</h3>
       <p>
-        Sesuaikan filter atau jalankan kampanye simulasi untuk mulai memantau.
+        {tr(
+          "Sesuaikan filter atau jalankan kampanye simulasi untuk mulai memantau.",
+        )}
       </p>
     </div>
   );
@@ -172,7 +181,7 @@ function Metric({
   return (
     <article className="metric-card">
       <div className="metric-label">
-        {label}
+        {tr(label)}
         <Icon size={16} />
       </div>
       {onClick ? (
@@ -187,7 +196,9 @@ function Metric({
         className={`metric-change ${difference !== null && difference < 0 ? "down" : ""}`}
       >
         {difference === null ? (
-          <span className="muted">{note ?? "Pembanding tidak tersedia"}</span>
+          <span className="muted">
+            {note ?? tr("Pembanding tidak tersedia")}
+          </span>
         ) : (
           <>
             <span>
@@ -198,7 +209,7 @@ function Metric({
               )}{" "}
               {Math.abs(difference).toFixed(1)}%
             </span>{" "}
-            vs periode sebelumnya
+            {tr("vs periode sebelumnya")}
           </>
         )}
       </span>
@@ -219,21 +230,21 @@ function VolumeChart({ rows }: { rows: Row[] }) {
     <section className="panel analytics-panel volume-panel">
       <div className="panel-heading">
         <div>
-          <h3>Aktivitas pengiriman</h3>
-          <p>Logical messages · Asia/Jakarta</p>
+          <h3>{tr("Aktivitas pengiriman")}</h3>
+          <p>{tr("Logical messages \u00B7 Asia/Jakarta")}</p>
         </div>
         <div className="segmented">
           <button
             className={mode === "volume" ? "active" : ""}
             onClick={() => setMode("volume")}
           >
-            Volume
+            {tr("Volume")}
           </button>
           <button
             className={mode === "delivery" ? "active" : ""}
             onClick={() => setMode("delivery")}
           >
-            Delivery
+            {tr("Delivery")}
           </button>
         </div>
       </div>
@@ -243,7 +254,10 @@ function VolumeChart({ rows }: { rows: Row[] }) {
             <svg
               viewBox="0 0 710 240"
               role="img"
-              aria-label={`Jumlah ${mode === "volume" ? "pesan" : "pesan tersampaikan"} per hari. Data tabel tersedia di bawah.`}
+              aria-label={tr(
+                "Jumlah {0} per hari. Data tabel tersedia di bawah.",
+                { "0": mode === "volume" ? "pesan" : tr("pesan tersampaikan") },
+              )}
             >
               {[0, 1, 2, 3].map((i) => (
                 <g key={i}>
@@ -284,7 +298,8 @@ function VolumeChart({ rows }: { rows: Row[] }) {
                   >
                     <title>
                       {r.day}:{" "}
-                      {number(mode === "volume" ? r.total : r.delivered)} pesan
+                      {number(mode === "volume" ? r.total : r.delivered)}
+                      {tr(" pesan")}
                     </title>
                   </circle>
                   {(rows.length < 8 || i === 0 || i === rows.length - 1) && (
@@ -305,26 +320,31 @@ function VolumeChart({ rows }: { rows: Row[] }) {
           <div className="chart-footer">
             <span>
               <i />{" "}
-              {mode === "volume" ? "Message requests" : "Confirmed delivery"}
+              {mode === "volume"
+                ? tr("Message requests")
+                : tr("Confirmed delivery")}
             </span>
             <button
               className="text-btn"
               aria-expanded={table}
               onClick={() => setTable(!table)}
             >
-              {table ? "Tutup" : "Lihat"} data tabel
+              {table ? tr("Tutup") : tr("Lihat")}
+              {tr(" data tabel")}
             </button>
           </div>
           {table && (
             <div className="table-wrap">
               <table>
-                <caption className="sr-only">Data volume harian</caption>
+                <caption className="sr-only">
+                  {tr("Data volume harian")}
+                </caption>
                 <thead>
                   <tr>
-                    <th>Tanggal</th>
-                    <th>Requests</th>
-                    <th>Delivered</th>
-                    <th>Gagal</th>
+                    <th>{tr("Tanggal")}</th>
+                    <th>{tr("Requests")}</th>
+                    <th>{tr("Delivered")}</th>
+                    <th>{tr("Gagal")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -359,11 +379,11 @@ function FailureTable({
       <table className="operations-table">
         <thead>
           <tr>
-            <th>Waktu · WIB</th>
-            <th>Message ID</th>
-            <th>Kanal</th>
-            <th>Vendor</th>
-            <th>Status</th>
+            <th>{tr("Waktu \u00B7 WIB")}</th>
+            <th>{tr("Message ID")}</th>
+            <th>{tr("Kanal")}</th>
+            <th>{tr("Vendor")}</th>
+            <th>{tr("Status")}</th>
             <th />
           </tr>
         </thead>
@@ -388,7 +408,7 @@ function FailureTable({
               <td>
                 <button
                   className="icon-btn"
-                  aria-label={`Detail pesan ${r.id}`}
+                  aria-label={tr("Detail pesan {0}", { "0": r.id })}
                   onClick={() => open(r.id)}
                 >
                   <ChevronRight size={17} />
@@ -402,7 +422,9 @@ function FailureTable({
   ) : (
     <div className="clear-state">
       <ShieldCheck size={22} />
-      <span>Belum ada kegagalan atau hasil tidak pasti pada periode ini.</span>
+      <span>
+        {tr("Belum ada kegagalan atau hasil tidak pasti pada periode ini.")}
+      </span>
     </div>
   );
 }
@@ -425,7 +447,8 @@ export function OperationsDashboard({
     request,
     `operations/summary?days=${days}&channel=${channel}`,
   );
-  if (!data) return <State loading={loading} error={error} retry={reload} />;
+  if (!data)
+    return <State loading={loading} error={tr(error)} retry={reload} />;
   const t = data.totals,
     p = data.previous;
   return (
@@ -433,41 +456,42 @@ export function OperationsDashboard({
       <div className="observation-bar">
         <span>
           <span className="status-dot" />
-          Local simulation{" "}
+          {tr("Ringkasan pengiriman")}{" "}
           <span className="muted">
-            · Diperbarui {timestamp(data.observedAt)}
+            {tr("\u00B7 Diperbarui ")}
+            {timestamp(data.observedAt)}
           </span>
         </span>
         <button className="text-btn" onClick={reload}>
           <RefreshCw size={13} />
-          Refresh
+          {tr("Refresh")}
         </button>
       </div>
       <div className={`metrics-row ${canCosts ? "" : "four"}`}>
         <Metric
-          label="Message requests"
+          label={tr("Message requests")}
           value={number(t.total)}
           raw={t.total}
           previous={p?.total}
           icon={MessagesSquare}
         />
         <Metric
-          label="Confirmed delivery"
+          label={tr("Confirmed delivery")}
           value={number(t.delivered)}
           raw={t.delivered}
           previous={p?.delivered}
           icon={CheckCheck}
         />
         <Metric
-          label="Delivery success rate"
+          label={tr("Delivery success rate")}
           value={
             t.total ? `${((t.delivered / t.total) * 100).toFixed(1)}%` : "—"
           }
           icon={Activity}
-          note="Delivered / seluruh requests"
+          note={tr("Delivered / seluruh requests")}
         />
         <Metric
-          label="Final failed"
+          label={tr("Final failed")}
           value={number(t.failed)}
           raw={t.failed}
           previous={p?.failed}
@@ -481,27 +505,28 @@ export function OperationsDashboard({
         />
         {canCosts && (
           <Metric
-            label="Estimated message cost"
+            label={tr("Estimated message cost")}
             value={formatMoney(t.estimated_cost)}
             icon={Wallet}
-            note="IDR · estimasi simulasi"
+            note={tr("IDR \u00B7 estimasi simulasi")}
           />
         )}
       </div>
       <p className="metric-definition">
         {days === "all"
-          ? "Seluruh data yang diizinkan."
+          ? tr("Seluruh data yang diizinkan.")
           : `${days} hari terakhir; pembanding: ${days} hari sebelumnya.`}{" "}
-        Persentase delivery = pesan terkonfirmasi / seluruh requests, termasuk
-        pesan yang masih diproses. Hasil tidak pasti terpisah dari gagal final.
+        {tr(
+          "Persentase delivery = pesan terkonfirmasi / seluruh requests, termasuk pesan yang masih diproses. Hasil tidak pasti terpisah dari gagal final.",
+        )}
       </p>
       <div className="analytics-grid">
         <VolumeChart rows={data.trend} />
         <section className="panel analytics-panel channel-panel">
           <div className="panel-heading">
             <div>
-              <h3>Performa kanal</h3>
-              <p>Berdasarkan pesan yang teramati</p>
+              <h3>{tr("Performa kanal")}</h3>
+              <p>{tr("Berdasarkan pesan yang teramati")}</p>
             </div>
             <Activity size={18} />
           </div>
@@ -523,8 +548,8 @@ export function OperationsDashboard({
                       {r
                         ? `${number(r.total)} requests`
                         : channel === "push"
-                          ? "Belum dikonfigurasi"
-                          : "Belum ada pengamatan"}
+                          ? tr("Belum dikonfigurasi")
+                          : tr("Belum ada pengamatan")}
                     </small>
                   </span>
                   <span>
@@ -544,7 +569,7 @@ export function OperationsDashboard({
             })}
           </div>
           <div className="panel-footnote">
-            Delivery/read vendor nyata belum terhubung.
+            {tr("Delivery/read vendor nyata belum terhubung.")}
           </div>
         </section>
       </div>
@@ -557,14 +582,14 @@ export function OperationsDashboard({
             <Clock3 size={18} />
           </span>
           <span>
-            <small>Queue backlog</small>
+            <small>{tr("Queue backlog")}</small>
             <strong>
-              {number(t.queued)} <em>messages</em>
+              {number(t.queued)} <em>{tr("messages")}</em>
             </strong>
             <small>
               {t.queued
-                ? `Tertua: ${timestamp(data.oldestQueuedAt)}`
-                : "Tidak ada pesan dalam antrean"}
+                ? tr("Tertua: {0}", { "0": timestamp(data.oldestQueuedAt) })
+                : tr("Tidak ada pesan dalam antrean")}
             </small>
           </span>
           <ArrowUpRight size={16} />
@@ -577,11 +602,11 @@ export function OperationsDashboard({
             <AlertCircle size={18} />
           </span>
           <span>
-            <small>Unconfirmed outcomes</small>
+            <small>{tr("Unconfirmed outcomes")}</small>
             <strong>
-              {number(t.unknown)} <em>messages</em>
+              {number(t.unknown)} <em>{tr("messages")}</em>
             </strong>
-            <small>Periksa hasil sebelum mencoba ulang</small>
+            <small>{tr("Periksa hasil sebelum mencoba ulang")}</small>
           </span>
           <ArrowUpRight size={16} />
         </button>
@@ -590,11 +615,12 @@ export function OperationsDashboard({
             <Activity size={18} />
           </span>
           <span>
-            <small>Provider observations</small>
+            <small>{tr("Provider observations")}</small>
             <strong>
-              Simulation <em>only</em>
+              {tr("Simulation ")}
+              <em>{tr("only")}</em>
             </strong>
-            <small>Tidak ada klaim health vendor nyata</small>
+            <small>{tr("Tidak ada klaim health vendor nyata")}</small>
           </span>
           <ArrowUpRight size={16} />
         </button>
@@ -602,28 +628,29 @@ export function OperationsDashboard({
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <h3>Perlu investigasi</h3>
-            <p>Kegagalan final dan hasil belum terkonfirmasi terbaru</p>
+            <h3>{tr("Perlu investigasi")}</h3>
+            <p>{tr("Kegagalan final dan hasil belum terkonfirmasi terbaru")}</p>
           </div>
           <button
             className="text-btn"
             onClick={() => navigate("messages", `status=FAILED&days=${days}`)}
           >
-            Message Explorer <ArrowRight size={14} />
+            {tr("Message Explorer ")}
+            <ArrowRight size={14} />
           </button>
         </div>
         <FailureTable rows={data.failures} open={open} />
       </section>
       {data.trendTruncated && (
         <p className="hint">
-          Grafik dibatasi 366 tanggal teramati. Pilih periode lebih pendek untuk
-          investigasi.
+          {tr(
+            "Grafik dibatasi 366 tanggal teramati. Pilih periode lebih pendek untuk investigasi.",
+          )}
         </p>
       )}
     </div>
   );
 }
-
 function useExplorerFilters(mode: string) {
   const initial = {
     search: "",
@@ -703,59 +730,59 @@ export function MessageExplorer({
         >
           <Search size={16} />
           <input
-            aria-label="Cari ID pesan"
+            aria-label={tr("Cari ID pesan")}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="Message, provider, run, campaign ID…"
+            placeholder={tr("Message, provider, run, campaign ID\u2026")}
           />
           <button className="text-btn" type="submit">
-            Cari
+            {tr("Cari")}
           </button>
         </form>
         <label>
-          <span className="sr-only">Status pesan</span>
-          <select
-            aria-label="Status pesan"
+          <span className="sr-only">{tr("Status pesan")}</span>
+          <Select
+            aria-label={tr("Status pesan")}
             value={filters.status}
             onChange={(e) => change({ status: e.target.value })}
           >
-            <option value="all">Semua status</option>
+            <option value="all">{tr("Semua status")}</option>
             {Object.entries(statusNames).map(([key, value]) => (
               <option key={key} value={key}>
                 {value}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label>
-          <span className="sr-only">Kanal pesan</span>
-          <select
-            aria-label="Kanal pesan"
+          <span className="sr-only">{tr("Kanal pesan")}</span>
+          <Select
+            aria-label={tr("Kanal pesan")}
             value={filters.channel}
             onChange={(e) => change({ channel: e.target.value })}
           >
-            <option value="all">Semua kanal</option>
+            <option value="all">{tr("Semua kanal")}</option>
             {["email", "sms", "whatsapp"].map((c) => (
               <option key={c} value={c}>
-                {channelNames[c]}
+                {tr(channelNames[c])}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
-        <select
-          aria-label="Periode pesan"
+        <Select
+          aria-label={tr("Periode pesan")}
           value={filters.days}
           onChange={(e) => change({ days: e.target.value })}
         >
-          <option value="1">24 jam</option>
-          <option value="7">7 hari</option>
-          <option value="30">30 hari</option>
-          <option value="90">90 hari</option>
-          <option value="all">Semua waktu</option>
-        </select>
+          <option value="1">{tr("24 jam")}</option>
+          <option value="7">{tr("7 hari")}</option>
+          <option value="30">{tr("30 hari")}</option>
+          <option value="90">{tr("90 hari")}</option>
+          <option value="all">{tr("Semua waktu")}</option>
+        </Select>
         <button
           className="icon-btn"
-          aria-label="Refresh pesan"
+          aria-label={tr("Refresh pesan")}
           onClick={reload}
         >
           <RefreshCw size={16} />
@@ -765,72 +792,74 @@ export function MessageExplorer({
         <div>
           <span>
             <ShieldCheck size={13} />
-            Penerima disamarkan
+            {tr("Penerima disamarkan")}
           </span>
           {mode === "deliveries" && (
-            <span>Tidak ada retry otomatis untuk status tidak pasti.</span>
+            <span>
+              {tr("Tidak ada retry otomatis untuk status tidak pasti.")}
+            </span>
           )}
         </div>
         <div>
-          <select
-            aria-label="Filter vendor"
+          <Select
+            aria-label={tr("Filter vendor")}
             value={filters.provider}
             onChange={(e) => change({ provider: e.target.value })}
           >
-            <option value="">Semua vendor</option>
+            <option value="">{tr("Semua vendor")}</option>
             {choices.data?.providers.map((p: Row) => (
               <option key={p.id} value={p.id}>
                 {p.name}
               </option>
             ))}
-          </select>
+          </Select>
           {choices.data?.teams.length > 1 && (
-            <select
-              aria-label="Filter unit bisnis"
+            <Select
+              aria-label={tr("Filter unit bisnis")}
               value={filters.team}
               onChange={(e) => change({ team: e.target.value })}
             >
-              <option value="">Semua tim yang diizinkan</option>
+              <option value="">{tr("Semua tim yang diizinkan")}</option>
               {choices.data?.teams.map((t: Row) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
           <button
             className="text-btn"
             aria-pressed={compact}
             onClick={() => setCompact(!compact)}
           >
-            Compact
+            {tr("Compact")}
           </button>
           <button
             className="text-btn"
             aria-pressed={showIds}
             onClick={() => setShowIds(!showIds)}
           >
-            Provider ID
+            {tr("Provider ID")}
           </button>
         </div>
       </div>
       {!ready || !data ? (
-        <State loading={!ready || loading} error={error} retry={reload} />
+        <State loading={!ready || loading} error={tr(error)} retry={reload} />
       ) : data.items.length ? (
         <div className="table-wrap">
           <table className={`operations-table ${compact ? "compact" : ""}`}>
             <thead>
               <tr>
-                <th>Message ID</th>
-                <th>Dibuat · WIB</th>
-                <th>Tim / kampanye</th>
-                <th>Kanal</th>
-                <th>Vendor</th>
-                <th>Penerima</th>
-                <th>Status</th>
-                <th>Attempts</th>
-                <th>Latency</th>
-                {canCosts && <th>Est. IDR</th>}
+                <th>{tr("Message ID")}</th>
+                <th>{tr("Dibuat \u00B7 WIB")}</th>
+                <th>{tr("Tim / kampanye")}</th>
+                <th>{tr("Kanal")}</th>
+                <th>{tr("Vendor")}</th>
+                <th>{tr("Penerima")}</th>
+                <th>{tr("Status")}</th>
+                <th>{tr("Attempts")}</th>
+                <th>{tr("Latency")}</th>
+                {canCosts && <th>{tr("Est. IDR")}</th>}
                 <th />
               </tr>
             </thead>
@@ -849,9 +878,10 @@ export function MessageExplorer({
                     {showIds && (
                       <small
                         className="mono"
-                        title={m.provider_ref ?? "Belum tersedia"}
+                        title={m.provider_ref ?? tr("Belum tersedia")}
                       >
-                        {m.provider_ref?.slice(0, 16) ?? "Provider ID —"}
+                        {m.provider_ref?.slice(0, 16) ??
+                          tr("Provider ID \u2014")}
                       </small>
                     )}
                   </td>
@@ -880,7 +910,7 @@ export function MessageExplorer({
                   <td>
                     <button
                       className="icon-btn"
-                      aria-label={`Detail pesan ${m.id}`}
+                      aria-label={tr("Detail pesan {0}", { "0": m.id })}
                       onClick={() => open(m.id)}
                     >
                       <ChevronRight size={17} />
@@ -892,12 +922,13 @@ export function MessageExplorer({
           </table>
         </div>
       ) : (
-        <State loading={false} empty="Tidak ada pesan yang cocok" />
+        <State loading={false} empty={tr("Tidak ada pesan yang cocok")} />
       )}
       <div className="table-footer">
         <span>
-          Halaman {cursors.length + 1} · {data?.items.length ?? 0} pesan ·
-          terbaru dahulu
+          {tr("Halaman ")}
+          {cursors.length + 1} · {data?.items.length ?? 0}
+          {tr(" pesan \u00B7 terbaru dahulu")}
         </span>
         <div>
           <button
@@ -906,14 +937,14 @@ export function MessageExplorer({
             onClick={() => setCursors((c) => c.slice(0, -1))}
           >
             <ChevronLeft size={14} />
-            Sebelumnya
+            {tr("Sebelumnya")}
           </button>
           <button
             className="secondary"
             disabled={!data?.nextCursor || loading}
             onClick={() => setCursors((c) => [...c, data!.nextCursor])}
           >
-            Berikutnya
+            {tr("Berikutnya")}
             <ChevronRight size={14} />
           </button>
         </div>
@@ -921,7 +952,6 @@ export function MessageExplorer({
     </section>
   );
 }
-
 export function MessageInvestigation({
   request,
   id,
@@ -938,39 +968,48 @@ export function MessageInvestigation({
     [busy, setBusy] = useState(false),
     [resolveError, setResolveError] = useState(""),
     [copied, setCopied] = useState(false);
-  if (!data) return <State loading={loading} error={error} retry={reload} />;
+  if (!data)
+    return <State loading={loading} error={tr(error)} retry={reload} />;
   const m = data.message;
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(m.id);
       setCopied(true);
     } catch {
-      setResolveError("Salin ID secara manual jika clipboard tidak tersedia.");
+      setResolveError(
+        tr("Salin ID secara manual jika clipboard tidak tersedia."),
+      );
     }
   };
   return (
     <div className="message-investigation">
       <div className="drawer-intro">
-        <span className="eyebrow">LOGICAL MESSAGE · SIMULATION</span>
+        <span className="eyebrow">
+          {tr("LOGICAL MESSAGE \u00B7 SIMULATION")}
+        </span>
         <div>
           <code>{m.id}</code>
           <button
             className="icon-btn"
-            aria-label="Salin message ID"
+            aria-label={tr("Salin message ID")}
             onClick={() => void copy()}
           >
             <Copy size={15} />
           </button>
         </div>
-        {copied && <small role="status">Message ID disalin.</small>}
+        {copied && <small role="status">{tr("Message ID disalin.")}</small>}
         <StatusBadge status={m.status} />
       </div>
-      <div className="drawer-tabs" role="tablist" aria-label="Detail pesan">
+      <div
+        className="drawer-tabs"
+        role="tablist"
+        aria-label={tr("Detail pesan")}
+      >
         {[
           ["summary", "Ringkasan"],
-          ["timeline", "Timeline"],
-          ["attempts", "Attempts & errors"],
-          ["payload", "Payload & audit"],
+          ["timeline", tr("Timeline")],
+          ["attempts", tr("Attempts & errors")],
+          ["payload", tr("Payload & audit")],
         ].map(([key, label]) => (
           <button
             key={key}
@@ -980,7 +1019,7 @@ export function MessageInvestigation({
             id={`message-tab-button-${key}`}
             onClick={() => setTab(key)}
           >
-            {label}
+            {tr(label)}
           </button>
         ))}
       </div>
@@ -995,21 +1034,24 @@ export function MessageInvestigation({
             <dl className="detail-grid">
               {[
                 ["Penerima", m.recipient_masked],
-                ["Kanal", channelNames[m.channel]],
-                ["Run ID", m.run_id],
-                ["Campaign ID", m.campaign_id],
-                ["Provider reference", m.provider_ref ?? "Belum tersedia"],
-                ["Dibuat · WIB", timestamp(m.created_at)],
-                ["Diperbarui · WIB", timestamp(m.updated_at)],
+                [tr("Kanal"), channelNames[m.channel]],
+                [tr("Run ID"), m.run_id],
+                [tr("Campaign ID"), m.campaign_id],
                 [
-                  "Biaya estimasi",
+                  tr("Provider reference"),
+                  m.provider_ref ?? tr("Belum tersedia"),
+                ],
+                [tr("Dibuat \u00B7 WIB"), timestamp(m.created_at)],
+                [tr("Diperbarui \u00B7 WIB"), timestamp(m.updated_at)],
+                [
+                  tr("Biaya estimasi"),
                   m.unit_cost !== undefined
                     ? formatMoney(m.unit_cost)
-                    : "Akses terbatas",
+                    : tr("Akses terbatas"),
                 ],
               ].map(([label, value]) => (
-                <div key={label}>
-                  <dt>{label}</dt>
+                <div key={tr(label)}>
+                  <dt>{tr(label)}</dt>
                   <dd>{value}</dd>
                 </div>
               ))}
@@ -1017,8 +1059,9 @@ export function MessageInvestigation({
             <div className="info-callout">
               <ShieldCheck size={18} />
               <p>
-                Persetujuan vendor berbeda dari konfirmasi delivery. Hasil belum
-                terkonfirmasi tidak dikirim ulang secara otomatis.
+                {tr(
+                  "Persetujuan vendor berbeda dari konfirmasi delivery. Hasil belum terkonfirmasi tidak dikirim ulang secara otomatis.",
+                )}
               </p>
             </div>
           </>
@@ -1032,9 +1075,12 @@ export function MessageInvestigation({
                 />
                 <div>
                   <StatusBadge status={event.status} />
-                  <p>{event.detail ?? "Perubahan status tercatat"}</p>
+                  <p>{event.detail ?? tr("Perubahan status tercatat")}</p>
                   <time className="mono">{timestamp(event.created_at)}</time>
-                  <small className="mono">Event {event.id}</small>
+                  <small className="mono">
+                    {tr("Event ")}
+                    {event.id}
+                  </small>
                 </div>
               </li>
             ))}
@@ -1046,9 +1092,9 @@ export function MessageInvestigation({
               <table>
                 <thead>
                   <tr>
-                    <th>Attempt</th>
-                    <th>Status</th>
-                    <th>Waktu · WIB</th>
+                    <th>{tr("Attempt")}</th>
+                    <th>{tr("Status")}</th>
+                    <th>{tr("Waktu \u00B7 WIB")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1069,13 +1115,14 @@ export function MessageInvestigation({
               </table>
             </div>
             {!data.attempts.length && (
-              <p className="hint">Belum ada dispatch attempt.</p>
+              <p className="hint">{tr("Belum ada dispatch attempt.")}</p>
             )}
             <div className="info-callout">
               <AlertCircle size={18} />
               <p>
-                Manual retry belum tersedia. Tinjau status dan riwayat agar
-                pesan tidak terkirim ganda.
+                {tr(
+                  "Manual retry belum tersedia. Tinjau status dan riwayat agar pesan tidak terkirim ganda.",
+                )}
               </p>
             </div>
           </>
@@ -1086,8 +1133,12 @@ export function MessageInvestigation({
               <ShieldCheck size={18} />
               <p>
                 {data.payloadAvailable
-                  ? "Akses payload dicatat pada audit log. Penerima tetap disamarkan."
-                  : "Payload dibatasi untuk admin atau peran dengan izin messages:payload."}
+                  ? tr(
+                      "Akses payload dicatat pada audit log. Penerima tetap disamarkan.",
+                    )
+                  : tr(
+                      "Payload dibatasi untuk admin atau peran dengan izin messages:payload.",
+                    )}
               </p>
             </div>
             {data.payloadAvailable && (
@@ -1095,16 +1146,16 @@ export function MessageInvestigation({
             )}
             <dl className="detail-grid">
               <div>
-                <dt>Provider account version</dt>
-                <dd>{m.provider_version_id ?? "Tidak tersedia"}</dd>
+                <dt>{tr("Provider account version")}</dt>
+                <dd>{m.provider_version_id ?? tr("Tidak tersedia")}</dd>
               </div>
               <div>
-                <dt>Template version</dt>
-                <dd>Snapshot kampanye terkait</dd>
+                <dt>{tr("Template version")}</dt>
+                <dd>{tr("Snapshot kampanye terkait")}</dd>
               </div>
               <div>
-                <dt>Correlation ID</dt>
-                <dd>Tidak tersedia pada kontrak pesan saat ini</dd>
+                <dt>{tr("Correlation ID")}</dt>
+                <dd>{tr("Tidak tersedia pada kontrak pesan saat ini")}</dd>
               </div>
             </dl>
           </>
@@ -1112,10 +1163,11 @@ export function MessageInvestigation({
       </div>
       {canResolve && m.status === "UNKNOWN" && (
         <details className="resolve-panel">
-          <summary>Rekonsiliasi hasil simulasi</summary>
+          <summary>{tr("Rekonsiliasi hasil simulasi")}</summary>
           <p className="hint">
-            Hanya mengonfirmasi hasil simulator dan penyelesaian cadangan
-            anggaran. Bukan persetujuan invoice vendor.
+            {tr(
+              "Hanya mengonfirmasi hasil simulator dan penyelesaian cadangan anggaran. Bukan persetujuan invoice vendor.",
+            )}
           </p>
           {resolveError && (
             <p role="alert" className="alert error">
@@ -1143,22 +1195,22 @@ export function MessageInvestigation({
             }}
           >
             <label className="field">
-              <span>Hasil terkonfirmasi</span>
-              <select name="status">
-                <option value="DELIVERED">Tersampaikan</option>
-                <option value="FAILED">Gagal</option>
-              </select>
+              <span>{tr("Hasil terkonfirmasi")}</span>
+              <Select name="status">
+                <option value="DELIVERED">{tr("Tersampaikan")}</option>
+                <option value="FAILED">{tr("Gagal")}</option>
+              </Select>
             </label>
             <label className="field">
-              <span>Alasan dan bukti</span>
+              <span>{tr("Alasan dan bukti")}</span>
               <textarea name="reason" required minLength={3} maxLength={500} />
             </label>
             <label className="confirm-line">
               <input type="checkbox" required />
-              Saya telah memeriksa hasil dan dampak anggarannya.
+              {tr("Saya telah memeriksa hasil dan dampak anggarannya.")}
             </label>
             <button className="primary" disabled={busy}>
-              Konfirmasi hasil simulasi
+              {tr("Konfirmasi hasil simulasi")}
             </button>
           </form>
         </details>
@@ -1166,7 +1218,6 @@ export function MessageInvestigation({
     </div>
   );
 }
-
 export function ChannelMonitoring({
   request,
   navigate,
@@ -1178,14 +1229,16 @@ export function ChannelMonitoring({
     request,
     "operations/summary?days=7",
   );
-  if (!data) return <State loading={loading} error={error} retry={reload} />;
+  if (!data)
+    return <State loading={loading} error={tr(error)} retry={reload} />;
   return (
     <>
       <div className="info-callout">
         <Activity size={19} />
         <p>
-          Jendela pengamatan: 7 hari. Metrik berasal dari simulator lokal;
-          health, webhook delay, dan SLA vendor nyata belum tersedia.
+          {tr(
+            "Jendela pengamatan: 7 hari. Metrik penyedia uji tidak membuktikan health, webhook delay, atau SLA vendor.",
+          )}
         </p>
       </div>
       <div className="monitoring-grid">
@@ -1197,39 +1250,39 @@ export function ChannelMonitoring({
                 <Channel value={channel} />
                 <span className="neutral-chip">
                   {channel === "push"
-                    ? "Not configured"
+                    ? tr("Not configured")
                     : r
-                      ? "Simulated"
-                      : "No observations"}
+                      ? tr("Simulated")
+                      : tr("No observations")}
                 </span>
               </div>
               <dl className="monitoring-metrics">
                 <div>
-                  <dt>Requests</dt>
+                  <dt>{tr("Requests")}</dt>
                   <dd>{r ? number(r.total) : "—"}</dd>
                 </div>
                 <div>
-                  <dt>Confirmed delivery</dt>
+                  <dt>{tr("Confirmed delivery")}</dt>
                   <dd>{r ? number(r.delivered) : "—"}</dd>
                 </div>
                 <div>
-                  <dt>Final failures</dt>
+                  <dt>{tr("Final failures")}</dt>
                   <dd>{r ? number(r.failed) : "—"}</dd>
                 </div>
                 <div>
-                  <dt>Delivery latency p95</dt>
+                  <dt>{tr("Delivery latency p95")}</dt>
                   <dd>
                     {r?.p95_ms !== null && r?.p95_ms !== undefined
                       ? `${Math.round(Number(r.p95_ms))} ms`
-                      : "Tidak tersedia"}
+                      : tr("Tidak tersedia")}
                   </dd>
                 </div>
                 <div>
-                  <dt>Queue backlog</dt>
+                  <dt>{tr("Queue backlog")}</dt>
                   <dd>{r ? number(r.queued) : "—"}</dd>
                 </div>
                 <div>
-                  <dt>Oldest queued</dt>
+                  <dt>{tr("Oldest queued")}</dt>
                   <dd>{timestamp(r?.oldest_queued_at)}</dd>
                 </div>
               </dl>
@@ -1241,7 +1294,8 @@ export function ChannelMonitoring({
                       navigate("messages", `channel=${channel}&days=7`)
                     }
                   >
-                    Lihat pesan <ArrowRight size={14} />
+                    {tr("Lihat pesan ")}
+                    <ArrowRight size={14} />
                   </button>
                   <button
                     className="text-btn"
@@ -1252,7 +1306,7 @@ export function ChannelMonitoring({
                       )
                     }
                   >
-                    Investigasi gagal
+                    {tr("Investigasi gagal")}
                   </button>
                 </div>
               )}
@@ -1275,7 +1329,8 @@ export function VendorUsage({
     request,
     `operations/usage?days=${days}`,
   );
-  if (!data) return <State loading={loading} error={error} retry={reload} />;
+  if (!data)
+    return <State loading={loading} error={tr(error)} retry={reload} />;
   const total = (key: string) =>
     data.items
       .reduce((n: Decimal, r: Row) => n.add(r[key]), new Decimal(0))
@@ -1283,58 +1338,61 @@ export function VendorUsage({
   return (
     <>
       <div className="finance-toolbar">
-        <span className="neutral-chip">IDR · internal simulation</span>
-        <select
-          aria-label="Periode biaya"
+        <span className="neutral-chip">
+          {tr("IDR \u00B7 internal simulation")}
+        </span>
+        <Select
+          aria-label={tr("Periode biaya")}
           value={days}
           onChange={(e) => setDays(e.target.value)}
         >
-          <option value="7">7 hari</option>
-          <option value="30">30 hari</option>
-          <option value="90">90 hari</option>
-          <option value="all">Semua waktu</option>
-        </select>
+          <option value="7">{tr("7 hari")}</option>
+          <option value="30">{tr("30 hari")}</option>
+          <option value="90">{tr("90 hari")}</option>
+          <option value="all">{tr("Semua waktu")}</option>
+        </Select>
         <button className="secondary" onClick={() => navigate("budgets")}>
-          Alokasi biaya <ArrowRight size={14} />
+          {tr("Alokasi biaya ")}
+          <ArrowRight size={14} />
         </button>
       </div>
       <div className="metrics-row finance-metrics">
         <Metric
-          label="Logical messages"
+          label={tr("Logical messages")}
           value={number(
             data.items.reduce((n: number, r: Row) => n + r.messages, 0),
           )}
           icon={MessagesSquare}
-          note="Terpisah dari billable units"
+          note={tr("Terpisah dari billable units")}
         />
         <Metric
-          label="Estimated cost"
+          label={tr("Estimated cost")}
           value={formatMoney(total("estimated_cost"))}
           icon={Wallet}
-          note="Estimasi snapshot tarif"
+          note={tr("Estimasi snapshot tarif")}
         />
         <Metric
-          label="Internal ledger spend"
+          label={tr("Internal ledger spend")}
           value={formatMoney(total("ledger_spend"))}
           icon={Receipt}
-          note="Biaya simulasi yang dibukukan"
+          note={tr("Biaya simulasi yang dibukukan")}
         />
         <Metric
-          label="Provider / invoiced cost"
+          label={tr("Provider / invoiced cost")}
           value="—"
           icon={Scale}
-          note="Belum terhubung"
+          note={tr("Belum terhubung")}
         />
       </div>
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <h3>Penggunaan vendor</h3>
-            <p>Biaya internal, vendor, dan invoice tetap terpisah</p>
+            <h3>{tr("Penggunaan vendor")}</h3>
+            <p>{tr("Biaya internal, vendor, dan invoice tetap terpisah")}</p>
           </div>
           <button className="text-btn" onClick={reload}>
             <RefreshCw size={14} />
-            Refresh
+            {tr("Refresh")}
           </button>
         </div>
         {data.items.length ? (
@@ -1342,14 +1400,14 @@ export function VendorUsage({
             <table>
               <thead>
                 <tr>
-                  <th>Vendor</th>
-                  <th>Kanal</th>
-                  <th>Tim</th>
-                  <th>Messages</th>
-                  <th>Est. cost · IDR</th>
-                  <th>Ledger spend · IDR</th>
-                  <th>Provider cost</th>
-                  <th>Invoice</th>
+                  <th>{tr("Vendor")}</th>
+                  <th>{tr("Kanal")}</th>
+                  <th>{tr("Tim")}</th>
+                  <th>{tr("Messages")}</th>
+                  <th>{tr("Est. cost \u00B7 IDR")}</th>
+                  <th>{tr("Ledger spend \u00B7 IDR")}</th>
+                  <th>{tr("Provider cost")}</th>
+                  <th>{tr("Invoice")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1363,8 +1421,8 @@ export function VendorUsage({
                     <td>{number(r.messages)}</td>
                     <td className="tabular">{formatMoney(r.estimated_cost)}</td>
                     <td className="tabular">{formatMoney(r.ledger_spend)}</td>
-                    <td className="muted">Tidak tersedia</td>
-                    <td className="muted">Tidak tersedia</td>
+                    <td className="muted">{tr("Tidak tersedia")}</td>
+                    <td className="muted">{tr("Tidak tersedia")}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1377,10 +1435,9 @@ export function VendorUsage({
       <div className="info-callout">
         <ShieldCheck size={18} />
         <p>
-          Perhitungan internal menggunakan desimal dan snapshot tarif. Satu
-          pesan tidak selalu satu billable unit; kuantitas tagihan, FX,
-          provider-reported cost, dan invoice menunggu kontrak vendor yang
-          terverifikasi.
+          {tr(
+            "Perhitungan internal menggunakan desimal dan snapshot tarif. Satu pesan tidak selalu satu billable unit; kuantitas tagihan, FX, provider-reported cost, dan invoice menunggu kontrak vendor yang terverifikasi.",
+          )}
         </p>
       </div>
     </>
@@ -1397,16 +1454,16 @@ export function ReconciliationWorkspace({
     <>
       <div className="reconciliation-stages">
         {[
-          ["1", "Internal records", "Available", "active"],
-          ["2", "Provider usage", "Not connected", ""],
-          ["3", "Vendor invoices", "Not connected", ""],
-          ["4", "Review & approval", "Not available", ""],
+          ["1", tr("Internal records"), "Available", "active"],
+          ["2", tr("Provider usage"), tr("Not connected"), ""],
+          ["3", tr("Vendor invoices"), tr("Not connected"), ""],
+          ["4", tr("Review & approval"), tr("Not available"), ""],
         ].map(([step, title, description, cls]) => (
           <div key={step} className={cls}>
             <span>{step}</span>
             <b>
               {title}
-              <small>{description}</small>
+              <small>{tr(description)}</small>
             </b>
             {step !== "4" && <ChevronRight size={16} />}
           </div>
@@ -1415,15 +1472,14 @@ export function ReconciliationWorkspace({
       <div className="info-callout">
         <Scale size={20} />
         <p>
-          Workbench saat ini menampilkan hasil pengiriman yang belum
-          terkonfirmasi. Matching invoice, variance, dan approval batch belum
-          terhubung. Tidak ada status “matched” yang disimpulkan dari total
-          saja.
+          {tr(
+            "Workbench saat ini menampilkan hasil pengiriman yang belum terkonfirmasi. Matching invoice, variance, dan approval batch belum terhubung. Tidak ada status \u201Cmatched\u201D yang disimpulkan dari total saja.",
+          )}
         </p>
       </div>
       <div className="section-heading">
-        <h2>Hasil yang memerlukan konfirmasi</h2>
-        <span className="neutral-chip">Simulated outcomes</span>
+        <h2>{tr("Hasil yang memerlukan konfirmasi")}</h2>
+        <span className="neutral-chip">{tr("Simulated outcomes")}</span>
       </div>
       <MessageExplorer
         request={request}

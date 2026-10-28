@@ -1,5 +1,35 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
+test.afterEach(async ({ page }) => {
+  await page.request
+    .put("/api/profile/language", {
+      headers: {
+        Origin: "http://127.0.0.1:3000",
+        "X-Requested-With": "MessagingApp",
+      },
+      data: { locale: "id" },
+    })
+    .catch(() => {});
+});
+async function selectOption(
+  locator: Locator,
+  option: string | { label: string },
+) {
+  if (await locator.evaluate((e) => e.tagName === "SELECT")) {
+    await locator.selectOption(option);
+    return;
+  }
+  await locator.click();
+  const page = locator.page();
+  const target =
+    typeof option === "string"
+      ? page
+          .locator('[role="option"]')
+          .filter({ visible: true })
+          .and(page.locator("[data-value=" + JSON.stringify(option) + "]"))
+      : page.getByRole("option", { name: option.label, exact: true });
+  await target.click();
+}
 async function login(page: Page, role: string) {
   await page.goto("/");
   await expect(
@@ -16,9 +46,22 @@ async function login(page: Page, role: string) {
   await page.getByRole("button", { name: "Masuk", exact: true }).click();
   await expect(
     page.getByRole("button", {
-      name: new RegExp(`^Profil ${role[0].toUpperCase() + role.slice(1)}`),
+      name: new RegExp(
+        `^(Profil|Profile) ${role[0].toUpperCase() + role.slice(1)}`,
+      ),
     }),
   ).toBeVisible();
+  if ((await page.locator("html").getAttribute("lang")) === "en") {
+    await page.request.put("/api/profile/language", {
+      headers: {
+        Origin: "http://127.0.0.1:3000",
+        "X-Requested-With": "MessagingApp",
+      },
+      data: { locale: "id" },
+    });
+    await page.reload();
+    await expect(page.locator("html")).toHaveAttribute("lang", "id");
+  }
 }
 test("creator to two approvers to local message timeline", async ({ page }) => {
   const errors: string[] = [];
@@ -30,9 +73,9 @@ test("creator to two approvers to local message timeline", async ({ page }) => {
   const dialog = page.getByRole("dialog");
   const name = `Demo browser ${Date.now()}`;
   await dialog.getByLabel("Nama kampanye", { exact: true }).fill(name);
-  await dialog
-    .getByLabel("Sumber data", { exact: true })
-    .selectOption({ label: "Kontak contoh (data sintetis) · 3 baris" });
+  await selectOption(dialog.getByLabel("Sumber data", { exact: true }), {
+    label: "Kontak contoh (data sintetis) · 3 baris",
+  });
   await dialog.getByText("email", { exact: true }).click();
   await expect(dialog.getByText(/Halo Ayu Demo/)).toBeVisible();
   await dialog
@@ -77,7 +120,7 @@ test("creator to two approvers to local message timeline", async ({ page }) => {
     .click();
   await page
     .getByRole("navigation")
-    .getByRole("button", { name: "Overview", exact: true })
+    .getByRole("button", { name: "Ringkasan", exact: true })
     .click();
   await page.screenshot({
     path: ".agents/artifacts/implementation/preview.png",
@@ -186,11 +229,11 @@ test("scheduled campaign can be paused, resumed, and cancelled with reasons", as
   const dialog = page.getByRole("dialog");
   const name = `Scheduled controls ${Date.now()}`;
   await dialog.getByLabel("Nama kampanye", { exact: true }).fill(name);
-  await dialog
-    .getByLabel("Sumber data", { exact: true })
-    .selectOption({ label: "Kontak contoh (data sintetis) · 3 baris" });
+  await selectOption(dialog.getByLabel("Sumber data", { exact: true }), {
+    label: "Kontak contoh (data sintetis) · 3 baris",
+  });
   await dialog.getByText("email", { exact: true }).click();
-  await dialog.getByLabel("Pengiriman", { exact: true }).selectOption("once");
+  await selectOption(dialog.getByLabel("Pengiriman", { exact: true }), "once");
   const future = new Date(Date.now() + 3600000)
     .toLocaleString("sv-SE", { timeZone: "Asia/Jakarta" })
     .replace(" ", "T")
@@ -273,7 +316,7 @@ test("admin configures a multichannel simulator and encrypted account without co
     .getByRole("button", { name: "Validasi mapping", exact: true })
     .click();
   await expect(
-    row.getByText("Tervalidasi lokal", { exact: true }),
+    row.getByText("Konfigurasi tervalidasi", { exact: true }),
   ).toBeVisible();
   await row.getByRole("button", { name: "Publikasikan", exact: true }).click();
   await expect(row.getByText("Dipublikasikan", { exact: true })).toBeVisible();
@@ -283,9 +326,9 @@ test("admin configures a multichannel simulator and encrypted account without co
   await panel.getByRole("button", { name: "Tambah akun", exact: true }).click();
   const account = `Account browser ${Date.now()}`;
   await panel.getByLabel("Nama akun penyedia", { exact: true }).fill(account);
-  await panel
-    .getByLabel("Definisi akun", { exact: true })
-    .selectOption({ label: `${name} · v1` });
+  await selectOption(panel.getByLabel("Definisi akun", { exact: true }), {
+    label: `${name} · v1`,
+  });
   await panel
     .getByLabel("Identitas pengirim", { exact: true })
     .fill("Browser Demo");
@@ -319,9 +362,10 @@ test("widget order and width persist, ledger is visible to finance, viewer costs
       .getByRole("button", { name: "Turunkan delivery", exact: true })
       .click();
   while (await up.isEnabled()) await up.click();
-  await dialog
-    .getByLabel("Lebar delivery", { exact: true })
-    .selectOption("full");
+  await selectOption(
+    dialog.getByLabel("Lebar delivery", { exact: true }),
+    "full",
+  );
   await dialog
     .getByRole("button", { name: "Simpan tampilan", exact: true })
     .click();
@@ -337,20 +381,22 @@ test("widget order and width persist, ledger is visible to finance, viewer costs
   const updated = page.waitForResponse(
     (r) => r.url().endsWith("/api/dashboard") && r.request().method() === "PUT",
   );
-  await page
-    .getByLabel("Filter kanal dashboard", { exact: true })
-    .selectOption("sms");
+  await selectOption(
+    page.getByLabel("Filter kanal dashboard", { exact: true }),
+    "sms",
+  );
   await updated;
   await page.reload();
   await expect(
     page.getByLabel("Filter kanal dashboard", { exact: true }),
-  ).toHaveValue("sms");
+  ).toHaveAttribute("data-value", "sms");
   const restored = page.waitForResponse(
     (r) => r.url().endsWith("/api/dashboard") && r.request().method() === "PUT",
   );
-  await page
-    .getByLabel("Filter kanal dashboard", { exact: true })
-    .selectOption("all");
+  await selectOption(
+    page.getByLabel("Filter kanal dashboard", { exact: true }),
+    "all",
+  );
   await restored;
   await login(page, "finance");
   await page
@@ -400,11 +446,11 @@ test("returned campaign can be revised and resubmitted with preserved decisions"
   const dialog = page.getByRole("dialog");
   const name = `Revision browser ${Date.now()}`;
   await dialog.getByLabel("Nama kampanye", { exact: true }).fill(name);
-  await dialog
-    .getByLabel("Sumber data", { exact: true })
-    .selectOption({ label: "Kontak contoh (data sintetis) · 3 baris" });
+  await selectOption(dialog.getByLabel("Sumber data", { exact: true }), {
+    label: "Kontak contoh (data sintetis) · 3 baris",
+  });
   await dialog.getByText("email", { exact: true }).click();
-  await dialog.getByLabel("Pengiriman", { exact: true }).selectOption("once");
+  await selectOption(dialog.getByLabel("Pengiriman", { exact: true }), "once");
   await dialog
     .getByLabel("Mulai (sesuai zona waktu kampanye)", { exact: true })
     .fill(
@@ -423,10 +469,10 @@ test("returned campaign can be revised and resubmitted with preserved decisions"
     .getByRole("button", { name: /Persetujuan/ })
     .click();
   await page.getByRole("button", { name, exact: true }).click();
-  await page
-    .getByRole("dialog")
-    .getByLabel("Keputusan", { exact: true })
-    .selectOption("RETURN");
+  await selectOption(
+    page.getByRole("dialog").getByLabel("Keputusan", { exact: true }),
+    "RETURN",
+  );
   await page
     .getByRole("dialog")
     .getByLabel("Catatan (wajib untuk penolakan / pengembalian)", {
@@ -544,7 +590,7 @@ test("UMS shell persists collapsed navigation and light/dark themes with readabl
   await login(page, "creator");
   await expect(page.locator(".metrics-row").first()).toBeVisible();
   await expect(
-    page.locator(".metric-label").filter({ hasText: "Message requests" }),
+    page.locator(".metric-label").filter({ hasText: "Permintaan pesan" }),
   ).toBeVisible();
   await page.screenshot({
     path: ".agents/artifacts/implementation/ums-dashboard-light.png",
@@ -597,7 +643,7 @@ test("UMS shell persists collapsed navigation and light/dark themes with readabl
         .filter((p) => p.ratio < 4.5);
     });
   expect(await auditContrast()).toEqual([]);
-  await page.getByLabel("Tema", { exact: true }).selectOption("dark");
+  await selectOption(page.getByLabel("Tema", { exact: true }), "dark");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect(page.locator(".insight-card").first()).toHaveCSS(
     "background-color",
@@ -620,7 +666,7 @@ test("UMS shell persists collapsed navigation and light/dark themes with readabl
   await page
     .getByRole("button", { name: "Perluas navigasi", exact: true })
     .click();
-  await page.getByLabel("Tema", { exact: true }).selectOption("system");
+  await selectOption(page.getByLabel("Tema", { exact: true }), "system");
   await page.emulateMedia({ colorScheme: "light" });
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 });
@@ -643,7 +689,10 @@ test("Message Explorer filters, pages, and investigates messages without losing 
   ).not.toHaveText(first);
   await page.getByRole("button", { name: "Sebelumnya", exact: true }).click();
   await expect(page.getByText(/Halaman 1/)).toBeVisible();
-  await page.getByLabel("Status pesan", { exact: true }).selectOption("FAILED");
+  await selectOption(
+    page.getByLabel("Status pesan", { exact: true }),
+    "FAILED",
+  );
   await expect(
     page.locator(".operations-table tbody .badge").first(),
   ).toHaveText("Gagal final");
@@ -654,10 +703,10 @@ test("Message Explorer filters, pages, and investigates messages without losing 
   });
   await expect(drawer).toBeVisible();
   await expect(drawer.getByText("Penerima", { exact: true })).toBeVisible();
-  await drawer.getByRole("tab", { name: "Timeline", exact: true }).click();
+  await drawer.getByRole("tab", { name: "Linimasa", exact: true }).click();
   await expect(drawer.locator(".delivery-timeline li").first()).toBeVisible();
   await drawer
-    .getByRole("tab", { name: "Attempts & errors", exact: true })
+    .getByRole("tab", { name: "Percobaan & galat", exact: true })
     .click();
   await expect(
     drawer.getByText("Manual retry belum tersedia.", { exact: false }),
@@ -672,9 +721,9 @@ test("Message Explorer filters, pages, and investigates messages without losing 
   });
   await page.keyboard.press("Escape");
   await expect(drawer).not.toBeVisible();
-  await expect(page.getByLabel("Status pesan", { exact: true })).toHaveValue(
-    "FAILED",
-  );
+  await expect(
+    page.getByLabel("Status pesan", { exact: true }),
+  ).toHaveAttribute("data-value", "FAILED");
   await expect(page).toHaveURL(/status=FAILED/);
 });
 test("command search opens monitoring and finance screens distinguish unavailable vendor data", async ({
@@ -702,19 +751,21 @@ test("command search opens monitoring and finance screens distinguish unavailabl
     .getByRole("button", { name: "Penggunaan & biaya", exact: true })
     .click();
   await expect(
-    page.getByText("Internal ledger spend", { exact: true }),
+    page.getByText("Biaya ledger internal", { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText("Provider / invoiced cost", { exact: true }),
+    page.getByText("Biaya vendor / invoice", { exact: true }),
   ).toBeVisible();
   await page
     .getByRole("navigation")
     .getByRole("button", { name: "Rekonsiliasi", exact: true })
     .click();
   await expect(
-    page.getByText("Vendor invoices", { exact: false }),
+    page.getByText("Invoice vendor", { exact: false }),
   ).toBeVisible();
-  await expect(page.getByText("Not connected", { exact: true })).toHaveCount(2);
+  await expect(page.getByText("Belum terhubung", { exact: true })).toHaveCount(
+    2,
+  );
 });
 test("mobile UMS monitoring keeps navigation, drawer, and filters usable", async ({
   page,
@@ -723,7 +774,7 @@ test("mobile UMS monitoring keeps navigation, drawer, and filters usable", async
   await login(page, "viewer");
   await page
     .getByRole("navigation")
-    .getByRole("button", { name: "Message Explorer", exact: true })
+    .getByRole("button", { name: "Penelusuran pesan", exact: true })
     .click();
   await expect(
     page.locator(".operations-table tbody tr").first(),
@@ -747,4 +798,137 @@ test("mobile UMS monitoring keeps navigation, drawer, and filters usable", async
     () => document.documentElement.scrollWidth > window.innerWidth,
   );
   expect(overflow).toBe(false);
+});
+
+test("bilingual manual, dropdown keyboard and notification layout", async ({
+  page,
+}) => {
+  await login(page, "creator");
+  await selectOption(page.getByLabel("Bahasa", { exact: true }), "en");
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await page.goto("/help");
+  await expect(
+    page.getByRole("heading", { name: "User guide", exact: true, level: 1 }),
+  ).toBeVisible();
+  await page
+    .getByLabel("Search the guide", { exact: true })
+    .fill("first campaign");
+  await page
+    .getByRole("button", { name: "Start: your first campaign", exact: true })
+    .click();
+  await expect(page.locator(".guide-article")).toContainText("approval");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await selectOption(page.getByLabel("Language", { exact: true }), "id");
+  await page.goto("/workflows");
+  await page.getByRole("button", { name: "Notifikasi", exact: true }).click();
+  const dialog = page.getByRole("dialog", {
+    name: "Notifikasi tim",
+    exact: true,
+  });
+  await expect(dialog).toBeVisible();
+  for (const width of [1024, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const overlaps = await dialog.locator(".notification-meta").evaluateAll(
+      (rows) =>
+        rows.filter((row) => {
+          const time = row.querySelector("time")!.getBoundingClientRect();
+          const actions = row
+            .querySelector(".notification-actions")!
+            .getBoundingClientRect();
+          return (
+            time.right > actions.left &&
+            time.left < actions.right &&
+            time.bottom > actions.top &&
+            time.top < actions.bottom
+          );
+        }).length,
+    );
+    expect(overlaps).toBe(0);
+  }
+  await page.screenshot({
+    path: ".agents/artifacts/implementation/notifications-mobile.png",
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Tutup", exact: true }).click();
+  await page.goto("/settings/notifications");
+  await expect(
+    page.getByText("Administrator belum mengaktifkan notifikasi perangkat.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: "Aktifkan pada perangkat ini",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+});
+
+test("platform company menu onboards a separate company owner", async ({
+  page,
+}) => {
+  await login(page, "admin");
+  await page.goto("/settings/companies");
+  await page
+    .getByRole("button", { name: "Perusahaan baru", exact: true })
+    .click();
+  const form = page.locator(".company-form");
+  const name = `Company browser ${Date.now()}`;
+  await form.getByLabel("Nama perusahaan", { exact: true }).fill(name);
+  await form.getByLabel("Nama admin", { exact: true }).fill("Company owner");
+  await form
+    .getByLabel("Email admin", { exact: true })
+    .fill(`owner-${randomUUID()}@example.test`);
+  await form.locator("input[name=adminPassword]").fill("SyntheticCompany123!");
+  await form
+    .getByRole("button", { name: "Buat perusahaan", exact: true })
+    .click();
+  await expect(
+    page.getByText("Perusahaan berhasil dibuat", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.locator("table").getByText(name, { exact: true }),
+  ).toBeVisible();
+  await login(page, "creator");
+  await expect(
+    page
+      .getByRole("navigation")
+      .getByRole("button", { name: "Perusahaan", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("dropdown keyboard selection and Escape preserve the campaign form", async ({
+  page,
+}) => {
+  await login(page, "creator");
+  await page
+    .getByRole("button", { name: "Buat kampanye", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog");
+  const source = dialog.getByLabel("Sumber data", { exact: true });
+  await source.focus();
+  await page.keyboard.press("Space");
+  await expect(page.getByRole("listbox")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+  await expect(dialog).toBeVisible();
+  await source.focus();
+  await page.keyboard.press("Space");
+  await page.keyboard.press("Home");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+  await expect(dialog).toBeVisible();
+  await expect(source).not.toHaveAttribute("data-value", "");
+  await page.getByRole("button", { name: "Tutup", exact: true }).click();
+});
+
+test('English login labels preserve entered credentials while switching language',async({page})=>{
+ await page.goto('/');
+ await page.getByLabel('Email',{exact:true}).fill('viewer@example.test');
+ await selectOption(page.getByLabel('Bahasa',{exact:true}),'en');
+ await expect(page.getByRole('button',{name:'Sign in',exact:true})).toBeVisible();
+ await expect(page.getByLabel('Password',{exact:true})).toBeVisible();
+ await expect(page.getByLabel('Email',{exact:true})).toHaveValue('viewer@example.test');
 });

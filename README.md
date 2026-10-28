@@ -1,10 +1,10 @@
 # One UMS Portal
 
-A local-first Unified Messaging System for campaign delivery, sequential approvals, operational investigation, and cost-centre budgets. Built with TypeScript, Next.js, NestJS, PostgreSQL, and Redis/BullMQ.
+A Unified Messaging System for campaign delivery, sequential approvals, operational investigation, and cost-centre budgets. Built with TypeScript, Next.js, NestJS, PostgreSQL, and Redis/BullMQ.
 
-The interface follows a purple enterprise workspace: grouped navigation, light/dark/system themes, compact tables, message investigation drawers, and separate operations and finance views. Existing business forms use Bahasa Indonesia.
+The interface follows a purple enterprise workspace: grouped navigation, light/dark/system themes, compact tables, message investigation drawers, and separate operations and finance views. The application supports Bahasa Indonesia and English, including navigation, forms, operational notifications and an in-app user guide. User-authored content stays in its original language.
 
-**Default delivery is simulated.** Email, SMS, and WhatsApp exercise the real local queue and financial ledger without sending external messages. This is an ongoing portfolio project; real provider transport, invoice matching, and visual workflow publication are not implemented yet.
+**Default delivery is simulated.** Email, SMS, and WhatsApp exercise the real queue and financial ledger without sending external messages. This is an ongoing portfolio project; real provider transport, invoice matching, and visual workflow publication are not implemented yet.
 
 ## Features
 
@@ -18,7 +18,18 @@ The interface follows a purple enterprise workspace: grouped navigation, light/d
 - Operational dashboard, observed channel metrics, internal vendor usage, saved personal widgets and layouts.
 - Versioned vendor definitions/accounts and encrypted credentials. Generic HTTP mapping configuration exists; actual generic sending/callbacks remain unfinished and real-account activation is rejected.
 
-## Local setup
+## Server installation / Instalasi server
+
+- **[Step-by-step English guide](docs/deployment-en.md)** — Docker/Compose, migrations, first operator, HTTPS, backups, upgrades, optional Web Push and Kubernetes.
+- **[Panduan Bahasa Indonesia](docs/deployment-id.md)** — langkah instalasi server, migrasi DB, admin platform, HTTPS, backup dan Kubernetes.
+- **[Credits / Inspirasi dan dependensi](CREDITS.md)** — Novu, Courier, Brevo, Dub, Trigger.dev and implementation libraries.
+- **[Product use-case review and priorities](docs/product-review.md)** — available behaviour, gaps and recommended next features.
+
+The same source runs on a workstation or a server. Deployment examples include an API, independent worker, frontend and persistent PostgreSQL/Redis. Secrets and the public origin are configured at runtime. `db:migrate` upgrades schema without seeding demonstrations; `db:bootstrap` creates the first platform operator. See the guides before running these on a server.
+
+New in this increment: role-separated **Companies** onboarding, saved account language, accessible dropdowns, a searchable **Help** page and opt-in **Device notifications**. Push is disabled until an operator configures VAPID/HTTPS. It covers operational team notifications; customer push campaigns are a future extension.
+
+## Development setup
 
 Requires Node.js 24+ and pnpm 11.25.0.
 
@@ -48,19 +59,23 @@ Local schedules require the computer and services to stay running. Expired unsta
 
 ## Screens
 
-| Route | Purpose |
-| --- | --- |
-| `/dashboard` | Logical-message KPIs, volume, channel performance, exceptions, personal widgets |
-| `/messages` | Cursor-paginated message search and investigation drawer |
-| `/deliveries` | Queue and uncertain-state investigation |
-| `/channels` | Observed channel metrics, explicit simulator/no-observation labels |
-| `/workflows`, `/approvals` | Existing campaign definitions and sequential approval workflows |
-| `/templates`, `/sources` | Template versions, imports, incoming/REST connections |
-| `/finance/usage` | Internal estimates and ledger spend by vendor/channel/team |
-| `/finance/allocation` | Cost-centre budgets, topups, ledger/export |
-| `/finance/reconciliation` | Unconfirmed local outcomes; provider invoice matching is unavailable |
-| `/settings/providers` | Vendor configurations, encrypted accounts, rates |
-| `/settings/applications`, `/settings/audit` | Company administration, approvals, profile and audit |
+| Route                                       | Purpose                                                                         |
+| ------------------------------------------- | ------------------------------------------------------------------------------- |
+| `/dashboard`                                | Logical-message KPIs, volume, channel performance, exceptions, personal widgets |
+| `/messages`                                 | Cursor-paginated message search and investigation drawer                        |
+| `/deliveries`                               | Queue and uncertain-state investigation                                         |
+| `/channels`                                 | Observed channel metrics, explicit simulator/no-observation labels              |
+| `/workflows`, `/approvals`                  | Existing campaign definitions and sequential approval workflows                 |
+| `/templates`, `/sources`                    | Template versions, imports, incoming/REST connections                           |
+| `/finance/usage`                            | Internal estimates and ledger spend by vendor/channel/team                      |
+| `/finance/allocation`                       | Cost-centre budgets, topups, ledger/export                                      |
+| `/finance/reconciliation`                   | Unconfirmed local outcomes; provider invoice matching is unavailable            |
+| `/settings/companies`                       | Platform-only company onboarding; company admins cannot create other tenants    |
+| `/settings/notifications`, `/help`          | Device push preferences/history and bilingual user manual                       |
+| `/settings/providers`                       | Vendor configurations, encrypted accounts, rates                                |
+| `/settings/applications`, `/settings/audit` | Company administration, approvals, profile and audit                            |
+
+Latest checks and limits: [experience verification](docs/experience-verification.md).
 
 ## Verify
 

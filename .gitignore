@@ -7,6 +7,8 @@ dist/
 .env
 .env.*
 !.env.example
+!.env.server.example
+!.env.bootstrap.example
 *.tsbuildinfo
 .DS_Store
 coverage/
@@ -14,3 +16,7 @@ test-results/
 playwright-report/
 # Local agent evidence contains machine paths, screenshots, and browser traces.
 .agents/artifacts/
+# Operator-created deployment credentials and backups.
+deploy/**/*.env
+*.dump
+*.backup

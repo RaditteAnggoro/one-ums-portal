@@ -22,12 +22,21 @@
     "infra:local": "tsx scripts/local-postgres.ts",
     "infra:redis": "tsx scripts/local-redis.ts",
     "infra:prepare-redis": "tsx scripts/prepare-redis.ts",
-    "db:setup": "tsx --tsconfig tsconfig.api.json scripts/setup-db.ts"
+    "db:setup": "tsx --tsconfig tsconfig.api.json scripts/setup-db.ts",
+    "db:migrate": "node dist/scripts/migrate-db.js",
+    "db:migrate:dev": "tsx --tsconfig tsconfig.api.json scripts/migrate-db.ts",
+    "db:bootstrap": "node dist/scripts/bootstrap.js",
+    "db:bootstrap:dev": "tsx --tsconfig tsconfig.api.json scripts/bootstrap.ts",
+    "start:api": "node dist/apps/api/src/main.js",
+    "start:worker": "node dist/apps/api/src/worker.js",
+    "start:web": "next start apps/web --hostname 0.0.0.0 --port 3000",
+    "push:keys": "tsx scripts/push-keys.ts"
   },
   "dependencies": {
     "@nestjs/common": "12.3.2",
     "@nestjs/core": "12.3.2",
     "@nestjs/platform-express": "12.3.2",
+    "@radix-ui/react-select": "2.4.1",
     "bullmq": "6.5.0",
     "cookie-parser": "1.4.7",
     "csv-parse": "7.0.3",
@@ -47,6 +56,7 @@
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "sharp": "0.35.5",
+    "web-push": "3.6.7",
     "zod": "4.6.7"
   },
   "devDependencies": {
@@ -58,6 +68,7 @@
     "@types/pg": "8.23.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
+    "@types/web-push": "3.6.4",
     "concurrently": "10.0.6",
     "embedded-postgres": "18.4.0-beta.17",
     "prettier": "3.9.10",

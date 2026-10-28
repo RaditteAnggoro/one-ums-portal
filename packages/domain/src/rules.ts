@@ -51,17 +51,30 @@ export function estimate(
     )
     .toFixed(4);
 }
-const basic=new Set("@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà");
-const extension=new Set('^{}\\[~]|€\f');
+const basic = new Set(
+  "@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà",
+);
+const extension = new Set("^{}\\[~]|€\f");
 export function billableUnits(channel: Channel, body: string): number {
   if (channel !== "sms") return 1;
   // GSM 03.38 default/extension alphabets; actual vendor billing must be verified by its adapter.
   // https://www.twilio.com/docs/glossary/what-is-gsm-7-character-encoding
-  const symbols=[...body];const gsm=symbols.every(c=>basic.has(c)||extension.has(c));
-  const weights=symbols.map(c=>gsm?(extension.has(c)?2:1):c.length);
-  if(weights.reduce((sum,n)=>sum+n,0)<=(gsm?160:70))return 1;
-  const capacity=gsm?153:67;let segments=1,used=0;
-  for(const weight of weights){if(used+weight>capacity){segments++;used=0;}used+=weight;}
+  const symbols = [...body];
+  const gsm = symbols.every((c) => basic.has(c) || extension.has(c));
+  const weights = symbols.map((c) =>
+    gsm ? (extension.has(c) ? 2 : 1) : c.length,
+  );
+  if (weights.reduce((sum, n) => sum + n, 0) <= (gsm ? 160 : 70)) return 1;
+  const capacity = gsm ? 153 : 67;
+  let segments = 1,
+    used = 0;
+  for (const weight of weights) {
+    if (used + weight > capacity) {
+      segments++;
+      used = 0;
+    }
+    used += weight;
+  }
   return segments;
 }
 

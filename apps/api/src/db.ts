@@ -1,7 +1,9 @@
 import "dotenv/config";
-import { Pool,types, type PoolClient } from "pg";
+import { Pool, types, type PoolClient } from "pg";
 // Calendar dates are not instants; keep budget boundaries independent of the server timezone.
-types.setTypeParser(1082,value=>value);
+types.setTypeParser(1082, (value) => value);
+if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL)
+  throw new Error("DATABASE_URL is required in production.");
 export const pool = new Pool({
   connectionString:
     process.env.DATABASE_URL ??

@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ums-api
+  namespace: ums
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: ums-api}
+  template:
+    metadata:
+      labels: {app: ums-api}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 45
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: api
+          image: one-ums-portal:0.1.0
+          imagePullPolicy: IfNotPresent
+          command: [node, dist/apps/api/src/main.js]
+          envFrom:
+            - configMapRef: {name: ums-config}
+            - secretRef: {name: ums-secrets}
+          ports: [{name: http, containerPort: 4100}]
+          resources:
+            requests: {cpu: 100m, memory: 192Mi}
+            limits: {cpu: "1", memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          readinessProbe:
+            httpGet: {path: /api/health, port: http}
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: {port: http}
+            initialDelaySeconds: 15
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ums-api
+  namespace: ums
+spec:
+  selector: {app: ums-api}
+  ports: [{name: http, port: 4100, targetPort: http}]

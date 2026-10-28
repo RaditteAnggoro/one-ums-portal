@@ -1,0 +1,25 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ums-bootstrap
+  namespace: ums
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext: {runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000}
+      containers:
+        - name: bootstrap
+          image: one-ums-portal:0.1.0
+          imagePullPolicy: IfNotPresent
+          command: [node, dist/scripts/bootstrap.js]
+          envFrom:
+            - configMapRef: {name: ums-config}
+            - secretRef: {name: ums-secrets}
+            - secretRef: {name: ums-bootstrap}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}

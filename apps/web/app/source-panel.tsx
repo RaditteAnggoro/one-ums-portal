@@ -1,4 +1,6 @@
 "use client";
+import { Select } from "./components/select";
+import { t as tr } from "./components/i18n";
 import { useEffect, useState } from "react";
 import { Database, Plus, RefreshCw, KeyRound, Copy } from "lucide-react";
 type Row = Record<string, any>;
@@ -17,33 +19,34 @@ export function SourcePanel({
   const [busy, setBusy] = useState(false);
   const refresh = async () => setSources(await request("sources"));
   useEffect(() => {
-    void perform(refresh, "Koneksi data siap.");
+    void perform(refresh, tr("Koneksi data siap."));
   }, []);
   return (
     <section className="panel source-panel">
       <div className="panel-heading">
         <h3>
           <Database size={17} />
-          Koneksi data otomatis
+          {tr("Koneksi data otomatis")}
         </h3>
         <button className="secondary" onClick={() => setShow(!show)}>
           <Plus size={15} />
-          Koneksi baru
+          {tr("Koneksi baru")}
         </button>
       </div>
       <p className="source-description">
-        Terima data dari aplikasi lain atau ambil data dari API. Setiap impor
-        menjadi versi baru; persetujuan pengiriman tetap diperlukan.
+        {tr(
+          "Terima data dari aplikasi lain atau ambil data dari API. Setiap impor menjadi versi baru; persetujuan pengiriman tetap diperlukan.",
+        )}
       </p>
       {sources.length > 0 && (
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Koneksi</th>
-                <th>Jenis</th>
-                <th>Versi data terakhir</th>
-                <th>Tindakan</th>
+                <th>{tr("Koneksi")}</th>
+                <th>{tr("Jenis")}</th>
+                <th>{tr("Versi data terakhir")}</th>
+                <th>{tr("Tindakan")}</th>
               </tr>
             </thead>
             <tbody>
@@ -54,10 +57,10 @@ export function SourcePanel({
                   </td>
                   <td>
                     {s.type === "REST"
-                      ? "Ambil dari API"
-                      : "Terima dari aplikasi"}
+                      ? tr("Ambil dari API")
+                      : tr("Terima dari aplikasi")}
                   </td>
-                  <td>{s.last_data_version || "Belum ada"}</td>
+                  <td>{s.last_data_version || tr("Belum ada")}</td>
                   <td>
                     {s.type === "REST" ? (
                       <button
@@ -76,11 +79,11 @@ export function SourcePanel({
                             } finally {
                               setBusy(false);
                             }
-                          }, "Versi data baru tersedia.")
+                          }, tr("Versi data baru tersedia."))
                         }
                       >
                         <RefreshCw size={14} />
-                        Ambil data
+                        {tr("Ambil data")}
                       </button>
                     ) : (
                       <button
@@ -96,11 +99,11 @@ export function SourcePanel({
                               )),
                               sourceId: s.id,
                             });
-                          }, "Kunci dibuat. Simpan dengan aman; hanya ditampilkan sekali.")
+                          }, tr("Kunci dibuat. Simpan dengan aman; hanya ditampilkan sekali."))
                         }
                       >
                         <KeyRound size={14} />
-                        Buat kunci API
+                        {tr("Buat kunci API")}
                       </button>
                     )}
                   </td>
@@ -112,15 +115,16 @@ export function SourcePanel({
       )}
       {key && (
         <div className="key-card">
-          <h3>Kunci koneksi baru</h3>
+          <h3>{tr("Kunci koneksi baru")}</h3>
           <p>
-            Simpan sekarang. Kunci berlaku 90 hari, terbatas pada koneksi ini.
-            Jangan masukkan ke kode atau repositori publik.
+            {tr(
+              "Simpan sekarang. Kunci berlaku 90 hari, terbatas pada koneksi ini. Jangan masukkan ke kode atau repositori publik.",
+            )}
           </p>
           <label className="field">
-            <span>Kunci API (ditampilkan sekali)</span>
+            <span>{tr("Kunci API (ditampilkan sekali)")}</span>
             <input
-              aria-label="Kunci API"
+              aria-label={tr("Kunci API")}
               type="password"
               readOnly
               value={key.token}
@@ -131,18 +135,19 @@ export function SourcePanel({
             onClick={() => void navigator.clipboard.writeText(key.token)}
           >
             <Copy size={14} />
-            Salin kunci
+            {tr("Salin kunci")}
           </button>
           <p className="mono">
-            POST {typeof window !== "undefined" ? window.location.origin : ""}
+            {tr("POST ")}
+            {typeof window !== "undefined" ? window.location.origin : ""}
             {key.endpoint}
           </p>
           <details>
-            <summary>Petunjuk integrasi</summary>
+            <summary>{tr("Petunjuk integrasi")}</summary>
             <p>
-              Gunakan Authorization: Bearer &lt;kunci&gt; dan Idempotency-Key
-              berupa UUID unik per pengiriman. Ulangi UUID yang sama hanya untuk
-              percobaan ulang data yang sama.
+              {tr(
+                "Gunakan Authorization: Bearer <kunci> dan Idempotency-Key berupa UUID unik per pengiriman. Ulangi UUID yang sama hanya untuk percobaan ulang data yang sama.",
+              )}
             </p>
             <pre>
               {JSON.stringify(
@@ -171,10 +176,10 @@ export function SourcePanel({
                   {},
                 );
                 setKey(null);
-              }, "Kunci telah dicabut.")
+              }, tr("Kunci telah dicabut."))
             }
           >
-            Cabut kunci ini
+            {tr("Cabut kunci ini")}
           </button>
         </div>
       )}
@@ -202,72 +207,73 @@ export function SourcePanel({
               form.reset();
               setShow(false);
               await refresh();
-            }, "Koneksi tersimpan.");
+            }, tr("Koneksi tersimpan."));
           }}
         >
           <div className="form-grid">
             <label className="field">
-              <span>Nama koneksi</span>
+              <span>{tr("Nama koneksi")}</span>
               <input
-                aria-label="Nama koneksi"
+                aria-label={tr("Nama koneksi")}
                 name="name"
                 required
                 minLength={3}
               />
             </label>
             <label className="field">
-              <span>Cara menerima data</span>
-              <select
-                aria-label="Cara menerima data"
+              <span>{tr("Cara menerima data")}</span>
+              <Select
+                aria-label={tr("Cara menerima data")}
                 value={type}
                 onChange={(e) => setType(e.target.value)}
               >
-                <option value="INCOMING">Dikirim oleh aplikasi lain</option>
-                <option value="REST">Ambil dari REST API</option>
-              </select>
+                <option value="INCOMING">
+                  {tr("Dikirim oleh aplikasi lain")}
+                </option>
+                <option value="REST">{tr("Ambil dari REST API")}</option>
+              </Select>
             </label>
           </div>
           {type === "REST" && (
             <>
               <label className="field">
-                <span>Alamat HTTPS API</span>
+                <span>{tr("Alamat HTTPS API")}</span>
                 <input
                   name="url"
-                  aria-label="Alamat HTTPS API"
+                  aria-label={tr("Alamat HTTPS API")}
                   type="url"
                   required
-                  placeholder="https://api.example.com/contacts"
+                  placeholder={tr("https://api.example.com/contacts")}
                 />
               </label>
               <div className="form-grid">
                 <label className="field">
-                  <span>Lokasi daftar di JSON (opsional)</span>
+                  <span>{tr("Lokasi daftar di JSON (opsional)")}</span>
                   <input
                     name="path"
-                    aria-label="Lokasi daftar JSON"
-                    placeholder="Contoh: data.contacts"
+                    aria-label={tr("Lokasi daftar JSON")}
+                    placeholder={tr("Contoh: data.contacts")}
                   />
                 </label>
                 <label className="field">
-                  <span>Nama rahasia pada server (opsional)</span>
+                  <span>{tr("Nama rahasia pada server (opsional)")}</span>
                   <input
                     name="secret"
-                    aria-label="Nama rahasia server"
-                    placeholder="SOURCE_CONTACTS_TOKEN"
+                    aria-label={tr("Nama rahasia server")}
+                    placeholder={tr("SOURCE_CONTACTS_TOKEN")}
                     pattern="SOURCE_[A-Z0-9_]+"
                   />
                 </label>
               </div>
               <p className="hint">
-                Minta administrator menyiapkan nilai rahasia pada server. Jangan
-                masukkan token ke alamat API. Sumber harus publik melalui HTTPS;
-                respons dibatasi 2 MB. Penjadwalan refresh dan pagination
-                lanjutan menyusul.
+                {tr(
+                  "Minta administrator menyiapkan nilai rahasia pada server. Jangan masukkan token ke alamat API. Sumber harus publik melalui HTTPS; respons dibatasi 2 MB. Penjadwalan refresh dan pagination lanjutan menyusul.",
+                )}
               </p>
             </>
           )}
           <button className="primary" disabled={busy}>
-            Simpan koneksi
+            {tr("Simpan koneksi")}
           </button>
         </form>
       )}
@@ -275,7 +281,9 @@ export function SourcePanel({
         <div className="empty">
           <Database size={25} />
           <p>
-            Mulai dengan unggah file, lalu tambahkan koneksi saat dibutuhkan.
+            {tr(
+              "Mulai dengan unggah file, lalu tambahkan koneksi saat dibutuhkan.",
+            )}
           </p>
         </div>
       )}

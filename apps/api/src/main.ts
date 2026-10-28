@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import { validateServerEnvironment } from "./config.js";
 import {
   Body,
   Controller,
@@ -51,6 +52,13 @@ import { pathToFileURL } from "node:url";
 import { AdminController, ProfileController } from "./admin.js";
 import { ProvidersController } from "./providers.js";
 import { LedgerController } from "./ledger.js";
+import {
+  PushController,
+  pushDevice,
+  deactivateDevice,
+  startPushWorker,
+} from "./push.js";
+import { CompaniesController } from "./companies.js";
 import { OperationsController, maskRecipient } from "./operations.js";
 import {
   dashboardSchema,
@@ -123,6 +131,8 @@ class ApiController {
       throw new UnauthorizedException("Email atau kata sandi tidak sesuai.");
     }
     loginAttempts.delete(key);
+    const device = pushDevice(req, res);
+    if (device) await deactivateDevice(device);
     const token = sessionToken();
     await pool.query(
       "INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval '8 hours')",
@@ -131,7 +141,9 @@ class ApiController {
     res.cookie("session", token, {
       httpOnly: true,
       sameSite: "strict",
-      secure: process.env.COOKIE_SECURE === "true",
+      secure:
+        process.env.COOKIE_SECURE === "true" ||
+        process.env.NODE_ENV === "production",
       maxAge: 8 * 3600000,
       path: "/",
     });
@@ -145,6 +157,8 @@ class ApiController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const a = await actorFor(req);
+    const device = pushDevice(req);
+    if (device) await deactivateDevice(device, a.id);
     await pool.query("DELETE FROM sessions WHERE token_hash=$1", [
       tokenHash(req.cookies.session),
     ]);
@@ -203,6 +217,23 @@ class ApiController {
     });
     loginAttempts.delete(key);
     return { ok: true };
+  }
+  @Put("profile/language") async language(
+    @Req() req: Request,
+    @Body() input: unknown,
+  ) {
+    const a = await actorFor(req);
+    const v = z.object({ locale: z.enum(["id", "en"]) }).parse(input);
+    await transaction(async (db) => {
+      await db.query(
+        "UPDATE users SET profile=jsonb_set(profile,'{locale}',to_jsonb($2::text)) WHERE id=$1",
+        [a.id, v.locale],
+      );
+      await audit(db, a, "profile.language_updated", "user", a.id, {
+        locale: v.locale,
+      });
+    });
+    return { ok: true, locale: v.locale };
   }
   @Get("bootstrap") async bootstrap(@Req() req: Request) {
     const a = await actorFor(req);
@@ -295,6 +326,7 @@ class ApiController {
         : [],
       stats: campaignRead ? stats : [],
       mode: "simulation",
+      config: { environment: process.env.UI_ENVIRONMENT_LABEL ?? "" },
     };
   }
   @Post("campaigns") async create(@Req() req: Request, @Body() body: unknown) {
@@ -841,6 +873,17 @@ class ApiController {
     );
     return { ok: true };
   }
+  @Post("notifications/read-all") async readAll(@Req() req: Request) {
+    const a = await actorFor(req, "campaigns:read");
+    await transaction(async (db) => {
+      await db.query(
+        `UPDATE notifications SET read_by=read_by||jsonb_build_array($4::text) WHERE ${scope(a)} AND NOT(read_by ? $4::text) AND ($5::boolean OR category<>'budget')`,
+        [...scopeValues(a), a.id, a.permissions.includes("budgets:read")],
+      );
+      await audit(db, a, "notifications.read_all", "user", a.id);
+    });
+    return { ok: true };
+  }
   @Post("notifications/:id/read") async readNotification(
     @Req() req: Request,
     @Param("id") id: string,
@@ -912,6 +955,8 @@ class ApiController {
     ProvidersController,
     LedgerController,
     OperationsController,
+    CompaniesController,
+    PushController,
   ],
 })
 class AppModule {}
@@ -920,6 +965,9 @@ export async function createApp() {
     logger: ["error", "warn", "log"],
   });
   app.setGlobalPrefix("api");
+  const trustedHops = Number(process.env.TRUST_PROXY_HOPS ?? 0);
+  if (Number.isInteger(trustedHops) && trustedHops > 0 && trustedHops <= 3)
+    app.getHttpAdapter().getInstance().set("trust proxy", trustedHops);
   app.use(helmet());
   app.use(cookieParser());
   app.use((req: Request, res: Response, next: () => void) => {
@@ -981,10 +1029,17 @@ export async function createApp() {
   return app;
 }
 async function main() {
+  validateServerEnvironment();
   const app = await createApp();
-  const close = await startWorkers();
-  await app.listen(Number(process.env.PORT ?? 4100), "127.0.0.1");
+  const embedded = process.env.RUN_WORKER_IN_API !== "false";
+  const close = embedded ? await startWorkers() : async () => {};
+  const closePush = embedded ? startPushWorker() : async () => {};
+  await app.listen(
+    Number(process.env.PORT ?? 4100),
+    process.env.API_HOST ?? "127.0.0.1",
+  );
   const stop = async () => {
+    await closePush();
     await close();
     await app.close();
     await pool.end();

@@ -1,0 +1,123 @@
+name: one-ums
+x-runtime: &runtime
+  image: ${UMS_IMAGE:-one-ums-portal:0.1.0}
+  init: true
+  restart: unless-stopped
+  stop_grace_period: 45s
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  tmpfs: ["/tmp:size=64m,mode=1777"]
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ums}
+      POSTGRES_DB: ${POSTGRES_DB:-ums}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes: ["postgres:/var/lib/postgresql"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 512m
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--maxmemory",
+        "256mb",
+        "--maxmemory-policy",
+        "noeviction",
+      ]
+    volumes: ["redis:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 384m
+  migrate:
+    image: ${UMS_IMAGE:-one-ums-portal:0.1.0}
+    command: ["node", "dist/scripts/migrate-db.js"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL}
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+  bootstrap:
+    image: ${UMS_IMAGE:-one-ums-portal:0.1.0}
+    profiles: [tools]
+    command: ["node", "dist/scripts/bootstrap.js"]
+    env_file:
+      - .env.server
+      - .env.bootstrap
+    environment:
+      NODE_ENV: production
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    restart: "no"
+  api:
+    <<: *runtime
+    command: ["node", "dist/apps/api/src/main.js"]
+    env_file: .env.server
+    environment:
+      NODE_ENV: production
+      API_HOST: 0.0.0.0
+      RUN_WORKER_IN_API: "false"
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    expose: ["4100"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4100/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    mem_limit: 512m
+  worker:
+    <<: *runtime
+    command: ["node", "dist/apps/api/src/worker.js"]
+    env_file: .env.server
+    environment:
+      NODE_ENV: production
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    mem_limit: 512m
+  web:
+    <<: *runtime
+    command:
+      [
+        "node",
+        "node_modules/next/dist/bin/next",
+        "start",
+        "apps/web",
+        "--hostname",
+        "0.0.0.0",
+        "--port",
+        "3000",
+      ]
+    environment:
+      NODE_ENV: production
+      API_ORIGIN: http://api:4100
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports: ["${WEB_BIND:-127.0.0.1}:${WEB_PORT:-3000}:3000"]
+    depends_on:
+      api: { condition: service_healthy }
+    mem_limit: 512m
+volumes:
+  postgres:
+  redis:

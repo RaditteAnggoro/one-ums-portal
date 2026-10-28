@@ -7,6 +7,8 @@ function masterKey() {
   if (process.env.APP_ENCRYPTION_KEY) {
     cached = Buffer.from(process.env.APP_ENCRYPTION_KEY, "base64");
   } else {
+    if (process.env.NODE_ENV === "production")
+      throw new Error("APP_ENCRYPTION_KEY is required in production.");
     const dir = resolve(".data/secrets");
     const path = resolve(dir, "master.key");
     mkdirSync(dir, { recursive: true, mode: 0o700 });

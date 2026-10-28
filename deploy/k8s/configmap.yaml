@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ums-config
+  namespace: ums
+data:
+  NODE_ENV: production
+  API_HOST: 0.0.0.0
+  API_ORIGIN: http://ums-api:4100
+  APP_ORIGIN: https://ums.example.com
+  COOKIE_SECURE: "true"
+  RUN_WORKER_IN_API: "false"
+  TRUST_PROXY_HOPS: "0"
+  WORKER_CONCURRENCY: "5"
+  PUSH_ENABLED: "false"
+  NEXT_TELEMETRY_DISABLED: "1"

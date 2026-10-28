@@ -1,3 +1,5 @@
+Latest experience increment: see [bilingual/server verification](experience-verification.md) for 47 backend/unit cases, 16 browser workflows and isolated container/HTTPS evidence. Historical results below retain their original scope.
+
 # Local verification — 28 October 2026
 
 Environment: macOS Apple Silicon, Node.js 24.22.1, Next.js 16.4.3, NestJS 12.3.2, native PostgreSQL 18.4 and Redis 8.10.3. Local synthetic data and simulated deliveries only.

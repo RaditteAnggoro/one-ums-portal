@@ -27,10 +27,10 @@ describe("template and cost rules", () => {
   it("counts SMS segments and keeps monetary calculations exact", () => {
     expect(billableUnits("sms", "a".repeat(161))).toBe(2);
     expect(billableUnits("sms", "漢".repeat(71))).toBe(2);
-    expect(billableUnits('sms','€'.repeat(71))).toBe(1);
-    expect(billableUnits('sms','€'.repeat(153))).toBe(3);
-    expect(billableUnits('sms','`'.repeat(71))).toBe(2);
-    expect(billableUnits('sms','😀'.repeat(67))).toBe(3);
+    expect(billableUnits("sms", "€".repeat(71))).toBe(1);
+    expect(billableUnits("sms", "€".repeat(153))).toBe(3);
+    expect(billableUnits("sms", "`".repeat(71))).toBe(2);
+    expect(billableUnits("sms", "😀".repeat(67))).toBe(3);
     expect(estimate("email", ["a", "b", "c"], "0.1")).toBe("0.3000");
   });
   it("uses exclusive calendar boundaries including month-end and leap years", () => {
