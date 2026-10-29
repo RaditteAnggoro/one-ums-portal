@@ -493,7 +493,13 @@ class ApiController {
             a.permissions.includes("budgets:read"),
           ),
           message_count: campaign.snapshot?.length ?? 0,
-          snapshot: campaign.snapshot?.slice(0, 3).map(messageView),
+          snapshot: campaign.snapshot
+            ?.filter(
+              (m: any, i: number, all: any[]) =>
+                all.findIndex((p) => p.channel === m.channel) === i,
+            )
+            .slice(0, channels.length)
+            .map(messageView),
         },
         runs: runs.map((r) =>
           costView(r, a.permissions.includes("budgets:read")),

@@ -4,7 +4,7 @@ A Unified Messaging System for campaign delivery, sequential approvals, operatio
 
 The interface follows a purple enterprise workspace: grouped navigation, light/dark/system themes, compact tables, message investigation drawers, and separate operations and finance views. The application supports Bahasa Indonesia and English, including navigation, forms, operational notifications and an in-app user guide. User-authored content stays in its original language.
 
-**Default delivery is simulated.** Email, SMS, and WhatsApp exercise the real queue and financial ledger without sending external messages. This is an ongoing portfolio project; real provider transport, invoice matching, and visual workflow publication are not implemented yet.
+**Default delivery is simulated.** Email, SMS, WhatsApp, Slack, Telegram and Push exercise the real queue and financial ledger without sending external messages. This is an ongoing portfolio project; real provider transport, invoice matching, and visual workflow publication are not implemented yet.
 
 ## Features
 
@@ -17,6 +17,19 @@ The interface follows a purple enterprise workspace: grouped navigation, light/d
 - Message Explorer with server filters and cursor pagination; masked recipients and restricted/audited payload access.
 - Operational dashboard, observed channel metrics, internal vendor usage, saved personal widgets and layouts.
 - Versioned vendor definitions/accounts and encrypted credentials. Generic HTTP mapping configuration exists; actual generic sending/callbacks remain unfinished and real-account activation is rejected.
+
+## Campaign recipients and provider management
+
+- Campaign variables follow the selected immutable template bodies. Template cards show their parameter names/count and previews; inline template creation is available. Shared parameter names share a column mapping.
+- Choose a source dataset/API/upload and explicitly map each channel's recipient column, or select direct input for one recipient and enter the destination/parameter values. Source rows are preserved as a scoped immutable dataset. Supported destination shapes: email address, Indonesian SMS/WhatsApp phone, Slack channel/user ID, Telegram chat ID/@channel, provider Push registration token/alias.
+- Email, SMS, WhatsApp, Slack, Telegram and Push are supported in the **simulated** campaign/approval/queue/reporting path. Customer Push is separate from internal device notifications. No live Slack/Telegram/FCM/Meta credentials or vendor delivery have been verified.
+- Provider forms appear above lists. Configure integration endpoint/method/auth, JSON headers/body, response ID path and template-based request previews. Use placeholders such as `{{recipient}}`, `{{body}}`, `{{parameters}}` or `{{variables.loan_no}}`; secret headers reference `{{credential.apiKey}}` and values belong in encrypted account credentials. Validate and publish a definition before creating accounts; create a new configuration version for changes.
+- Accounts include a sender, optional per-channel sender IDs, From/reply-to, workspace/app/WABA/phone-number IDs and encrypted API/bot/webhook/custom credentials. Partial credential rotation retains other keys; clearing is explicit. Saved secrets are never returned by list APIs. Generic HTTP transport remains disabled until a verified vendor adapter is implemented.
+- Rate cards are per account/channel and effective date, with recognized ISO currencies and an explicit FX-to-IDR value for non-IDR quotes. The immutable rate ID/FX identifies the quote used; budget reservations/spending remain IDR. This is not an automatic FX feed or vendor invoice matching.
+
+For this demonstration, login shortcuts list creator/approver/finance/admin/viewer for two seeded demo companies. To enable them in a portfolio build, set `NEXT_PUBLIC_DEMO_ACCOUNTS=true` in `apps/web/.env.local` or the web build environment, then rebuild/restart. This workstation is configured accordingly. Deployment builds remain opt-in and bootstrap never creates demonstration users automatically. `pnpm demo:examples` adds idempotent synthetic examples with0/1/2/3 parameters to existing demo companies; `pnpm db:setup` includes them on development setup. Do not run demonstration seeding on a real tenant database.
+
+[Scope and remaining boundaries](docs/campaign-integrations-plan.md) · [Verification evidence](docs/campaign-integrations-verification.md)
 
 ## Company governance and workspace updates
 

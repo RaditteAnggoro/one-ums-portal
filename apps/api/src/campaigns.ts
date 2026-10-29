@@ -21,6 +21,8 @@ import {
 } from "./context.js";
 import {
   destination,
+  channels,
+  recipientColumns,
   render,
   billableUnits,
   demoRates,
@@ -30,7 +32,7 @@ import {
 
 const schema = z.object({
   name: z.string().trim().min(3).max(120),
-  templateIds: z.array(z.uuid()).min(1).max(3),
+  templateIds: z.array(z.uuid()).min(1).max(channels.length),
   datasetId: z.uuid(),
   providerAccountId: z.uuid().optional(),
   costCentreId: z.uuid(),
@@ -45,6 +47,9 @@ const schema = z.object({
       count: z.number().int().min(1).max(1000),
     })
     .optional(),
+  recipientFields: z
+    .partialRecord(z.enum(channels), z.string().min(1).max(100))
+    .default({}),
   fieldMap: z.record(z.string(), z.string()).default({}),
 });
 export type Definition = z.infer<typeof schema>;
@@ -157,7 +162,8 @@ async function makeSnapshot(
       try {
         recipient = destination(
           channel,
-          original[channel === "email" ? "email" : "phone"] ?? "",
+          original[d.recipientFields?.[channel] ?? recipientColumns[channel]] ??
+            "",
         );
         body = render(t.body, row);
       } catch (error) {

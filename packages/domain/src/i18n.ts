@@ -2204,6 +2204,110 @@ Object.assign(indonesian, {
 Object.assign(english, { Tingkat: "Level" });
 Object.assign(indonesian, { Level: "Tingkat" });
 Object.assign(english, { "Pengiriman dan eksekusi": "Delivery and execution" });
+Object.assign(english, {
+  "Akun demo untuk testing": "Demo accounts for testing",
+  "Perusahaan demo": "Demo company",
+  "Perusahaan kedua": "Second company",
+  "Mode penerima": "Recipient mode",
+  "Dari source data": "From source data",
+  "Input langsung · satu penerima": "Direct input · one recipient",
+  "Untuk banyak penerima, gunakan CSV/XLSX atau source API. Pilih kolom tujuan untuk setiap channel.":
+    "For multiple recipients, use CSV/XLSX or a source API. Select the destination column for each channel.",
+  parameter: "parameters",
+  "Tanpa parameter": "No parameters",
+  "Buat template untuk channel lain": "Create a template for another channel",
+  "Nama template baru": "New template name",
+  "Channel template baru": "New template channel",
+  "Isi template baru": "New template content",
+  "Simpan dan pilih template": "Save and select template",
+  "Penerima {0}": "Recipient {0}",
+  "Pilih kolom tujuan": "Select destination column",
+  "Registration token atau alias perangkat dari provider; berbeda dengan notifikasi internal pengguna.":
+    "Provider registration token or device alias; separate from internal user notifications.",
+  "Gunakan Slack channel/user ID.": "Use a Slack channel/user ID.",
+  "Gunakan Telegram chat ID atau @channel.":
+    "Use a Telegram chat ID or @channel.",
+  "Versi konfigurasi baru": "New configuration version",
+  "Preview request dari template": "Preview request from template",
+  "Contoh sintetis": "Synthetic example",
+  "Sender per channel (opsional)": "Sender per channel (optional)",
+  "Hapus semua credentials tersimpan pada versi baru":
+    "Clear all stored credentials in the new version",
+  "Kurs ke IDR": "FX rate to IDR",
+  "Budget dan ledger dicatat dalam IDR. Kurs diisi admin dan dibekukan pada versi rate card; bukan kurs otomatis.":
+    "Budget and ledger use IDR. The administrator supplies the FX rate, frozen in the rate-card version; no automatic FX feed.",
+  "Email: alamat From; SMS: sender ID; WhatsApp: phone-number ID; Slack: bot/workspace; Telegram: bot ID; Push: app/project ID. Token dan password masuk ke credentials.":
+    "Email: From address; SMS: sender ID; WhatsApp: phone-number ID; Slack: bot/workspace; Telegram: bot ID; Push: app/project ID. Tokens and passwords belong in credentials.",
+  "Mapping tersedia: {{recipient}}, {{body}}, {{channel}}, {{message_id}}, {{sender}}, {{template_name}}, {{template_language}}, {{parameters}}. Header rahasia memakai {{credential.key}}; nilai disimpan di account.":
+    "Available mappings: {{recipient}}, {{body}}, {{channel}}, {{message_id}}, {{sender}}, {{template_name}}, {{template_language}}, {{parameters}}. Secret headers use {{credential.key}}; values are stored in account credentials.",
+  "Isi kurs ke IDR untuk mata uang ini.":
+    "Enter an FX rate to IDR for this currency.",
+  "Harga atau kurs tidak valid.": "Invalid price or FX rate.",
+  "Gunakan Slack channel/user ID, bukan nama tampilan.":
+    "Use a Slack channel/user ID, rather than a display name.",
+  "Gunakan registration token atau alias perangkat dari provider Push.":
+    "Use a registration token or device alias from the Push provider.",
+});
+Object.assign(indonesian, {
+  "Demo accounts for testing": "Akun demo untuk testing",
+  "Demo company": "Perusahaan demo",
+  "Second company": "Perusahaan kedua",
+  "Recipient mode": "Mode penerima",
+  "From source data": "Dari source data",
+  "Direct input · one recipient": "Input langsung · satu penerima",
+  "For multiple recipients, use CSV/XLSX or a source API. Select the destination column for each channel.":
+    "Untuk banyak penerima, gunakan CSV/XLSX atau source API. Pilih kolom tujuan untuk setiap channel.",
+  parameters: "parameter",
+  "No parameters": "Tanpa parameter",
+  "Create a template for another channel": "Buat template untuk channel lain",
+  "New template name": "Nama template baru",
+  "New template channel": "Channel template baru",
+  "New template content": "Isi template baru",
+  "Save and select template": "Simpan dan pilih template",
+  "Recipient {0}": "Penerima {0}",
+  "Select destination column": "Pilih kolom tujuan",
+  "Provider registration token or device alias; separate from internal user notifications.":
+    "Registration token atau alias perangkat dari provider; berbeda dengan notifikasi internal pengguna.",
+  "Use a Slack channel/user ID.": "Gunakan Slack channel/user ID.",
+  "Use a Telegram chat ID or @channel.":
+    "Gunakan Telegram chat ID atau @channel.",
+  "New configuration version": "Versi konfigurasi baru",
+  "Preview request from template": "Preview request dari template",
+  "Synthetic example": "Contoh sintetis",
+  "Sender per channel (optional)": "Sender per channel (opsional)",
+  "Clear all stored credentials in the new version":
+    "Hapus semua credentials tersimpan pada versi baru",
+  "FX rate to IDR": "Kurs ke IDR",
+  "Budget and ledger use IDR. The administrator supplies the FX rate, frozen in the rate-card version; no automatic FX feed.":
+    "Budget dan ledger dicatat dalam IDR. Kurs diisi admin dan dibekukan pada versi rate card; bukan kurs otomatis.",
+  "Email: From address; SMS: sender ID; WhatsApp: phone-number ID; Slack: bot/workspace; Telegram: bot ID; Push: app/project ID. Tokens and passwords belong in credentials.":
+    "Email: alamat From; SMS: sender ID; WhatsApp: phone-number ID; Slack: bot/workspace; Telegram: bot ID; Push: app/project ID. Token dan password masuk ke credentials.",
+  "Available mappings: {{recipient}}, {{body}}, {{channel}}, {{message_id}}, {{sender}}, {{template_name}}, {{template_language}}, {{parameters}}. Secret headers use {{credential.key}}; values are stored in account credentials.":
+    "Mapping tersedia: {{recipient}}, {{body}}, {{channel}}, {{message_id}}, {{sender}}, {{template_name}}, {{template_language}}, {{parameters}}. Header rahasia memakai {{credential.key}}; nilai disimpan di account.",
+  "Enter an FX rate to IDR for this currency.":
+    "Isi kurs ke IDR untuk mata uang ini.",
+  "Invalid price or FX rate.": "Harga atau kurs tidak valid.",
+  "Use a Slack channel/user ID, rather than a display name.":
+    "Gunakan Slack channel/user ID, bukan nama tampilan.",
+  "Use a registration token or device alias from the Push provider.":
+    "Gunakan registration token atau alias perangkat dari provider Push.",
+});
+Object.assign(indonesian, {
+  "Penyedia dan tarif": "Provider & integrations",
+  "Definisi penyedia": "Integrations",
+  "Akun dan pengirim": "Account & sender",
+  "Riwayat tarif": "Rate cards",
+  penyedia: "provider",
+  "Nama penyedia": "Nama provider",
+  "Nama akun penyedia": "Nama account provider",
+  "Identitas pengirim": "Sender ID / alamat From",
+  "API key penyedia": "API key provider",
+  "Rahasia webhook": "Webhook secret",
+  "Definisi penyedia baru": "Integration baru",
+  "Variabel {0}": "Parameter {0}",
+  "PRATINJAU ·": "PREVIEW ·",
+  "PREVIEW ·": "PREVIEW ·",
+});
 const indonesianTemplates = Object.entries(indonesian).filter(([key]) =>
   /\{\d+\}/.test(key),
 );

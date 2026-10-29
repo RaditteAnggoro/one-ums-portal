@@ -30,7 +30,8 @@
     "start:api": "node dist/apps/api/src/main.js",
     "start:worker": "node dist/apps/api/src/worker.js",
     "start:web": "next start apps/web --hostname 0.0.0.0 --port 3000",
-    "push:keys": "tsx scripts/push-keys.ts"
+    "push:keys": "tsx scripts/push-keys.ts",
+    "demo:examples": "tsx --tsconfig tsconfig.api.json scripts/demo-campaign-examples.ts"
   },
   "dependencies": {
     "@nestjs/common": "12.3.2",

@@ -15,18 +15,45 @@ import type { PoolClient } from "pg";
 import { z } from "zod";
 import { pool, transaction } from "./db.js";
 import { actorFor, audit } from "./context.js";
-import { encryptSecret } from "./secrets.js";
+import { Decimal } from "decimal.js";
+import { decryptSecret, encryptSecret } from "./secrets.js";
 import {
   genericContract,
   mapRequest,
 } from "../../../packages/domain/src/provider-contract.js";
 import { channels, type Channel } from "../../../packages/domain/src/rules.js";
 
-const money = z.string().regex(/^\d{1,12}(\.\d{1,4})?$/);
+const money = z.string().regex(/^\d{1,12}(\.\d{1,8})?$/);
+const currencySchema = z
+  .string()
+  .toUpperCase()
+  .refine(
+    (v) => Intl.supportedValuesOf("currency").includes(v),
+    "Use a recognized ISO currency.",
+  );
+const metadataSchema = z.object({
+  fromName: z.string().max(120).optional(),
+  replyTo: z.email().max(254).optional(),
+  workspaceId: z.string().max(120).optional(),
+  appId: z.string().max(120).optional(),
+  whatsappBusinessAccountId: z.string().max(120).optional(),
+  phoneNumberId: z.string().max(120).optional(),
+  senders: z
+    .partialRecord(z.enum(channels), z.string().min(1).max(254))
+    .optional(),
+});
 const accountSchema = z.object({
   definitionId: z.uuid(),
   sender: z.string().trim().min(1).max(120),
-  credentials: z.record(z.string().max(60), z.string().max(2000)).optional(),
+  credentials: z
+    .record(
+      z.string().regex(/^[A-Za-z_][\w]{0,59}$/),
+      z.string().min(1).max(4000),
+    )
+    .refine((v) => Object.keys(v).length <= 30)
+    .optional(),
+  clearCredentials: z.boolean().default(false),
+  metadata: metadataSchema.optional(),
 });
 export async function providerPrice(
   db: PoolClient,
@@ -63,7 +90,10 @@ export async function providerPrice(
   return {
     versionId: version.id,
     rateId: rate.id,
-    price: rate.price,
+    price: new Decimal(rate.price).times(rate.fx_to_idr).toString(),
+    currency: rate.currency,
+    quotedPrice: rate.price,
+    fxToIdr: rate.fx_to_idr,
     simulated: version.simulated,
   };
 }
@@ -79,7 +109,7 @@ export class ProvidersController {
       throw new ForbiddenException();
     const accounts = (
       await pool.query(
-        `SELECT a.id,a.name,a.enabled,v.id AS version_id,v.version,v.sender,v.simulated,v.definition_id,d.name AS provider,d.adapter,d.channels,
+        `SELECT a.id,a.name,a.enabled,v.id AS version_id,v.version,v.sender,v.metadata,v.simulated,v.definition_id,d.name AS provider,d.adapter,d.channels,
       (v.credentials_cipher IS NOT NULL) AS credentials_set FROM provider_accounts a JOIN provider_account_versions v ON v.id=a.current_version_id
       JOIN provider_definitions d ON d.id=v.definition_id WHERE a.company_id=$1 ORDER BY a.name`,
         [a.company_id],
@@ -114,7 +144,7 @@ export class ProvidersController {
       .object({
         name: z.string().trim().min(3).max(120),
         adapter: z.enum(["SIMULATOR", "GENERIC_HTTP"]),
-        channels: z.array(z.enum(channels)).min(1).max(3),
+        channels: z.array(z.enum(channels)).min(1).max(channels.length),
         config: z.unknown().default({}),
         parentId: z.uuid().optional(),
       })
@@ -187,6 +217,11 @@ export class ProvidersController {
             template_name: "demo",
             template_language: "id",
             parameters: [],
+            variables: {
+              name: "Demo",
+              reference: "REF-001",
+              loan_no: "LOAN-001",
+            },
           });
         } catch (error) {
           throw new BadRequestException((error as Error).message);
@@ -271,7 +306,7 @@ export class ProvidersController {
       ).rows[0];
       const version = (
         await db.query(
-          "INSERT INTO provider_account_versions(company_id,account_id,definition_id,version,sender,credentials_cipher,simulated) VALUES($1,$2,$3,1,$4,$5,$6) RETURNING id",
+          "INSERT INTO provider_account_versions(company_id,account_id,definition_id,version,sender,credentials_cipher,simulated,metadata) VALUES($1,$2,$3,1,$4,$5,$6,$7) RETURNING id",
           [
             a.company_id,
             account.id,
@@ -279,6 +314,7 @@ export class ProvidersController {
             v.sender,
             v.credentials ? encryptSecret(v.credentials) : null,
             d.adapter === "SIMULATOR",
+            JSON.stringify(v.metadata ?? {}),
           ],
         )
       ).rows[0];
@@ -314,10 +350,14 @@ export class ProvidersController {
     const a = await actorFor(req, "admin:write");
     z.uuid().parse(id);
     const v = accountSchema.parse(input);
+    if (v.clearCredentials && v.credentials)
+      throw new BadRequestException(
+        "Pilih rotasi atau hapus credentials, bukan keduanya.",
+      );
     return transaction(async (db) => {
       const account = (
         await db.query(
-          "SELECT a.*,v.version,v.credentials_cipher FROM provider_accounts a JOIN provider_account_versions v ON v.id=a.current_version_id WHERE a.company_id=$1 AND a.id=$2 FOR UPDATE OF a",
+          "SELECT a.*,v.version,v.credentials_cipher,v.metadata FROM provider_accounts a JOIN provider_account_versions v ON v.id=a.current_version_id WHERE a.company_id=$1 AND a.id=$2 FOR UPDATE OF a",
           [a.company_id, id],
         )
       ).rows[0];
@@ -330,17 +370,23 @@ export class ProvidersController {
       if (!account || !d) throw new NotFoundException();
       const version = (
         await db.query(
-          "INSERT INTO provider_account_versions(company_id,account_id,definition_id,version,sender,credentials_cipher,simulated) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id,version",
+          "INSERT INTO provider_account_versions(company_id,account_id,definition_id,version,sender,credentials_cipher,simulated,metadata) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id,version",
           [
             a.company_id,
             id,
             d.id,
             account.version + 1,
             v.sender,
-            v.credentials
-              ? encryptSecret(v.credentials)
-              : account.credentials_cipher,
+            v.clearCredentials
+              ? null
+              : v.credentials
+                ? encryptSecret({
+                    ...decryptSecret(account.credentials_cipher),
+                    ...v.credentials,
+                  })
+                : account.credentials_cipher,
             d.adapter === "SIMULATOR",
+            JSON.stringify(v.metadata ?? account.metadata ?? {}),
           ],
         )
       ).rows[0];
@@ -408,10 +454,21 @@ export class ProvidersController {
       .object({
         channel: z.enum(channels),
         price: money,
+        currency: currencySchema.default("IDR"),
+        fxToIdr: money.optional(),
         effectiveFrom: z.iso.datetime({ offset: true }),
         reason: z.string().min(3).max(500),
       })
       .parse(input);
+    if (v.currency !== "IDR" && !v.fxToIdr)
+      throw new BadRequestException("Isi kurs ke IDR untuk mata uang ini.");
+    const fx = v.currency === "IDR" ? "1" : v.fxToIdr!;
+    if (
+      new Decimal(fx).lte(0) ||
+      new Decimal(v.price).times(fx).gt("999999999999.9999") ||
+      (v.currency === "IDR" && v.fxToIdr && !new Decimal(v.fxToIdr).eq(1))
+    )
+      throw new BadRequestException("Harga atau kurs tidak valid.");
     if (+new Date(v.effectiveFrom) < Date.now() - 60000)
       throw new BadRequestException(
         "Tarif historis tidak dapat ditulis ulang.",
@@ -439,14 +496,24 @@ export class ProvidersController {
       );
       const rate = (
         await db.query(
-          "INSERT INTO rate_cards(company_id,account_id,channel,price,effective_from) VALUES($1,$2,$3,$4,$5) RETURNING id",
-          [a.company_id, id, v.channel, v.price, v.effectiveFrom],
+          "INSERT INTO rate_cards(company_id,account_id,channel,price,effective_from,currency,fx_to_idr) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id",
+          [
+            a.company_id,
+            id,
+            v.channel,
+            v.price,
+            v.effectiveFrom,
+            v.currency,
+            fx,
+          ],
         )
       ).rows[0];
       await audit(db, a, "provider.rate_created", "rate", rate.id, {
         accountId: id,
         channel: v.channel,
         price: v.price,
+        currency: v.currency,
+        fxToIdr: fx,
         effectiveFrom: v.effectiveFrom,
         reason: v.reason,
       });

@@ -2,6 +2,7 @@ import { z } from "zod";
 export const genericContract = z
   .object({
     endpoint: z.url().max(2000),
+    method: z.enum(["POST", "PUT"]).default("POST"),
     allowedHosts: z.array(z.string().min(3).max(253)).min(1).max(10),
     auth: z.enum(["none", "bearer", "api-key"]).default("bearer"),
     apiKeyHeader: z
@@ -49,7 +50,17 @@ export const genericContract = z
         message:
           "Endpoint must be HTTPS on an explicitly allowed hostname, without embedded credentials.",
       });
-    for (const key of Object.keys(v.headers))
+    for (const [key, value] of Object.entries(v.headers)) {
+      if (
+        /api.?key|token|secret/i.test(key) &&
+        !/^\{\{credential\.[A-Za-z_][\w]*\}\}$/.test(value)
+      )
+        c.addIssue({
+          code: "custom",
+          message:
+            "Secret headers must reference {{credential.key}}; store the value in account credentials.",
+        });
+
       if (
         [
           "authorization",
@@ -64,6 +75,7 @@ export const genericContract = z
           message:
             "Use the credential fields for authentication; transport headers cannot be overridden.",
         });
+    }
   });
 export type GenericContract = z.infer<typeof genericContract>;
 const allowed = new Set([
@@ -76,6 +88,7 @@ const allowed = new Set([
   "template_name",
   "template_language",
   "parameters",
+  "variables",
 ]);
 export function mapRequest(
   template: unknown,
@@ -84,16 +97,30 @@ export function mapRequest(
 ): unknown {
   if (depth > 12) throw new Error("Request mapping is too deeply nested.");
   if (typeof template === "string") {
-    const exact = template.match(/^\{\{(\w+)\}\}$/);
-    if (exact) {
-      if (!allowed.has(exact[1]))
-        throw new Error(`Unsupported mapping: ${exact[1]}`);
-      return values[exact[1]] ?? "";
-    }
-    return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => {
-      if (!allowed.has(key)) throw new Error(`Unsupported mapping: ${key}`);
-      return String(values[key] ?? "");
-    });
+    const lookup = (key: string) => {
+      const parts = key.split(".");
+      if (
+        !allowed.has(parts[0]) ||
+        parts.some((p) => ["__proto__", "constructor", "prototype"].includes(p))
+      )
+        throw new Error(`Unsupported mapping: ${key}`);
+      let value: unknown = values;
+      for (const part of parts) {
+        if (
+          !value ||
+          typeof value !== "object" ||
+          !Object.prototype.hasOwnProperty.call(value, part)
+        )
+          return "";
+        value = (value as Record<string, unknown>)[part];
+      }
+      return value ?? "";
+    };
+    const exact = template.match(/^\{\{([\w.]+)\}\}$/);
+    if (exact) return lookup(exact[1]);
+    return template.replace(/\{\{([\w.]+)\}\}/g, (_, key: string) =>
+      String(lookup(key)),
+    );
   }
   if (Array.isArray(template))
     return template.map((v) => mapRequest(v, values, depth + 1));

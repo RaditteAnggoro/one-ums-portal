@@ -1130,6 +1130,231 @@ describe("real PostgreSQL application boundaries", () => {
         .amount,
     ).toBe("12.3456");
   });
+  it("routes explicitly mapped Slack, Telegram and Push recipients through immutable approval and simulated delivery", async () => {
+    const t = await fixture();
+    for (const role of ["admin", "creator", "approver", "finance"])
+      await login(t, role);
+    const source = await request(
+      "datasets",
+      "POST",
+      {
+        name: "Channel mappings",
+        format: "json",
+        content: JSON.stringify([
+          {
+            slackTarget: "C12345678",
+            telegramTarget: "-10012345678",
+            pushTarget: "device-alias-test",
+            fullName: "Ada",
+            loanID: "L-42",
+            date: "2026-12-01",
+          },
+        ]),
+      },
+      t.cookies.creator,
+    );
+    expect(source.status).toBe(201);
+    const ids = [];
+    for (const [channel, body] of [
+      ["slack", "Static notice"],
+      ["telegram", "Loan {{loan_no}}"],
+      ["push", "{{name}} / {{loan_no}} / {{due}}"],
+    ]) {
+      const r = await request(
+        "templates",
+        "POST",
+        { name: channel + " dynamic", channel, body },
+        t.cookies.creator,
+      );
+      expect(r.status).toBe(201);
+      ids.push(r.body.id);
+    }
+    const fields = {
+      slack: "slackTarget",
+      telegram: "telegramTarget",
+      push: "pushTarget",
+    };
+    const c = await campaign(t, {
+      templateIds: ids,
+      datasetId: source.body.id,
+      recipientFields: fields,
+      fieldMap: { name: "fullName", loan_no: "loanID", due: "date" },
+    });
+    await approve(t, c.id);
+    const messages = (
+      await pool.query(
+        "SELECT m.* FROM messages m JOIN runs r ON r.id=m.run_id WHERE r.campaign_id=$1",
+        [c.id],
+      )
+    ).rows;
+    expect(messages).toHaveLength(3);
+    expect(messages.find((m) => m.channel === "push").body).toBe(
+      "Ada / L-42 / 2026-12-01",
+    );
+    expect(messages.find((m) => m.channel === "telegram").recipient).toBe(
+      "-10012345678",
+    );
+    for (const m of messages) {
+      await processMessage(m.id);
+      expect(
+        (await pool.query("SELECT status FROM messages WHERE id=$1", [m.id]))
+          .rows[0].status,
+      ).toBe("DELIVERED");
+    }
+    const bad = await request(
+      "campaigns",
+      "POST",
+      definition(t, {
+        templateIds: ids,
+        datasetId: source.body.id,
+        recipientFields: { ...fields, slack: "fullName" },
+        fieldMap: { name: "fullName", loan_no: "loanID", due: "date" },
+      }),
+      t.cookies.creator,
+    );
+    expect(bad.status).toBe(400);
+    expect(
+      (
+        await request(
+          `campaigns/${c.id}`,
+          "GET",
+          undefined,
+          other.cookies.admin,
+        )
+      ).status,
+    ).toBe(404);
+    const filtered = await request(
+      "operations/messages?channel=push",
+      "GET",
+      undefined,
+      t.cookies.creator,
+    );
+    expect(filtered.status).toBe(200);
+    expect(filtered.body.items).toHaveLength(1);
+  });
+  it("converts quoted vendor currency into IDR and preserves unrelated secrets when rotating an account", async () => {
+    const t = await fixture();
+    for (const role of ["admin", "creator", "approver", "finance"])
+      await login(t, role);
+    const d = await request(
+      "providers/definitions",
+      "POST",
+      {
+        name: "Currency integration",
+        adapter: "SIMULATOR",
+        channels: ["email"],
+      },
+      t.cookies.admin,
+    );
+    await request(
+      `providers/definitions/${d.body.id}/test`,
+      "POST",
+      {},
+      t.cookies.admin,
+    );
+    await request(
+      `providers/definitions/${d.body.id}/publish`,
+      "POST",
+      {},
+      t.cookies.admin,
+    );
+    const a = await request(
+      "providers/accounts",
+      "POST",
+      {
+        name: "Currency connection",
+        definitionId: d.body.id,
+        sender: "test@example.test",
+        credentials: {
+          apiKey: "old-test-key",
+          webhookSecret: "retained-test-secret",
+        },
+        metadata: { replyTo: "reply@example.test" },
+      },
+      t.cookies.admin,
+    );
+    expect(a.status).toBe(201);
+    const rotated = await request(
+      `providers/accounts/${a.body.id}/versions`,
+      "POST",
+      {
+        definitionId: d.body.id,
+        sender: "new@example.test",
+        credentials: { apiKey: "new-test-key" },
+      },
+      t.cookies.admin,
+    );
+    expect(rotated.status).toBe(201);
+    const records = (
+      await pool.query(
+        "SELECT credentials_cipher,metadata FROM provider_account_versions WHERE account_id=$1 ORDER BY version",
+        [a.body.id],
+      )
+    ).rows;
+    expect(decryptSecret(records[1].credentials_cipher)).toEqual({
+      apiKey: "new-test-key",
+      webhookSecret: "retained-test-secret",
+    });
+    expect(records[1].metadata.replyTo).toBe("reply@example.test");
+    expect(decryptSecret(records[0].credentials_cipher).apiKey).toBe(
+      "old-test-key",
+    );
+    const rate = {
+      channel: "email",
+      price: "0.001025",
+      currency: "USD",
+      effectiveFrom: new Date().toISOString(),
+      reason: "Quoted contract rate",
+    };
+    expect(
+      (
+        await request(
+          `providers/accounts/${a.body.id}/rates`,
+          "POST",
+          rate,
+          t.cookies.admin,
+        )
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await request(
+          `providers/accounts/${a.body.id}/rates`,
+          "POST",
+          { ...rate, fxToIdr: "16000" },
+          t.cookies.admin,
+        )
+      ).status,
+    ).toBe(201);
+    const c = await campaign(t, { providerAccountId: a.body.id });
+    await approve(t, c.id);
+    const m = (
+      await pool.query(
+        "SELECT m.* FROM messages m JOIN runs r ON r.id=m.run_id WHERE r.campaign_id=$1",
+        [c.id],
+      )
+    ).rows[0];
+    expect(m.unit_cost).toBe("16.4000");
+    const historical = (
+      await pool.query(
+        "SELECT currency,price,fx_to_idr FROM rate_cards WHERE id=$1",
+        [m.rate_id],
+      )
+    ).rows[0];
+    expect(historical).toEqual({
+      currency: "USD",
+      price: "0.00102500",
+      fx_to_idr: "16000.00000000",
+    });
+    const listed = await request(
+      "providers",
+      "GET",
+      undefined,
+      t.cookies.admin,
+    );
+    expect(JSON.stringify(listed.body)).not.toContain("retained-test-secret");
+    expect(JSON.stringify(listed.body)).not.toContain("new-test-key");
+  });
   it("stores work identity and role levels without granting implicit privileges or cross-company membership", async () => {
     const role = await request(
       "admin/roles",

@@ -1,4 +1,12 @@
 "use client";
+import {
+  channels,
+  channelNames as channelLabels,
+  recipientColumns,
+  variables,
+  render,
+  demoRates,
+} from "../../../packages/domain/src/rules";
 import { LoginScreen } from "./components/login-screen";
 import { statusLabel } from "../../../packages/domain/src/status";
 import { Select } from "./components/select";
@@ -964,7 +972,11 @@ export default function Home() {
               ))}
             {page === "providers" &&
               (can("admin:write") ? (
-                <ProviderPanel request={api} perform={perform} />
+                <ProviderPanel
+                  request={api}
+                  perform={perform}
+                  templates={data.templates}
+                />
               ) : (
                 <Empty>{tr("Akses administrasi tidak tersedia.")}</Empty>
               ))}
@@ -1343,7 +1355,7 @@ export default function Home() {
                   name="channel"
                   defaultValue={selected?.channel ?? "email"}
                 >
-                  {["email", "sms", "whatsapp"].map((c) => (
+                  {channels.map((c) => (
                     <option key={c}>{c}</option>
                   ))}
                 </Select>
@@ -2018,9 +2030,19 @@ export default function Home() {
                     0}{" "}
                   {tr("pesan.")}
                 </div>
-                {detail.campaign.snapshot?.[0] && (
-                  <blockquote>{detail.campaign.snapshot[0].body}</blockquote>
-                )}
+                {detail.campaign.snapshot?.map((sample: Row) => (
+                  <blockquote key={sample.channel}>
+                    <small>
+                      {
+                        channelLabels[
+                          sample.channel as keyof typeof channelLabels
+                        ]
+                      }{" "}
+                      · {sample.recipient}
+                    </small>
+                    <p>{sample.body}</p>
+                  </blockquote>
+                ))}
                 <h3>{tr("Persetujuan")}</h3>
                 <ol className="policy-list">
                   {detail.campaign.approval_policy?.stages.map(
@@ -2493,6 +2515,14 @@ function CampaignForm({
   const [sourceId, setSourceId] = useState(initial?.datasetId ?? "");
   const [formError, setFormError] = useState("");
   const sourceRequest = useRef(0);
+  const [inputMode, setInputMode] = useState("dataset"),
+    [manualValues, setManualValues] = useState<Record<string, string>>({}),
+    [saving, setSaving] = useState(false);
+  const [recipientFields, setRecipientFields] = useState<
+    Record<string, string>
+  >(initial?.recipientFields ?? {});
+  const [quick, setQuick] = useState({ name: "", channel: "email", body: "" });
+
   const [providerData, setProviderData] = useState<{
     accounts: Row[];
     rates: Row[];
@@ -2526,6 +2556,7 @@ function CampaignForm({
   );
   const loadDataset = async (id: string) => {
     const request = ++sourceRequest.current;
+    setFormError("");
     setSourceId(id);
     setDataset(null);
     try {
@@ -2562,38 +2593,45 @@ function CampaignForm({
     };
   }, []);
   const templates = catalog.filter((t) => templateIds.includes(t.id));
-  const vars = [
-    ...new Set(
-      templates.flatMap((t) =>
-        [...t.body.matchAll(/\{\{\s*([a-zA-Z_][\w]*)\s*\}\}/g)].map(
-          (m) => m[1],
-        ),
-      ),
+  const selectedChannels = templates.map((t) => t.channel);
+  const activeDataset =
+    inputMode === "manual" ? { rows: [manualValues], row_count: 1 } : dataset;
+  useEffect(() => {
+    if (
+      providerId &&
+      templates.some(
+        (t) =>
+          !providerData.accounts
+            .find((a) => a.id === providerId)
+            ?.channels.includes(t.channel),
+      )
+    )
+      setProviderId("");
+  }, [templateIds, providerData.accounts]);
+  const vars = [...new Set(templates.flatMap((t) => variables(t.body)))];
+  const columns = [
+    ...new Set<string>(
+      ((activeDataset?.rows ?? []) as Row[]).flatMap((r) => Object.keys(r)),
     ),
   ];
-  const columns = Object.keys(dataset?.rows[0] ?? {});
-  const estimate = templates.reduce(
-    (n, t) =>
-      n +
+  const estimate = templates.reduce((sum, t) => {
+    const rate = providerData.rates.find(
+      (r) =>
+        r.account_id === providerId &&
+        r.channel === t.channel &&
+        +new Date(r.effective_from) <= Date.now() &&
+        (!r.effective_until || +new Date(r.effective_until) > Date.now()),
+    );
+    return (
+      sum +
       Number(
-        providerData.rates.find(
-          (r) =>
-            r.account_id === providerId &&
-            r.channel === t.channel &&
-            new Date(r.effective_from).getTime() <= Date.now() &&
-            (!r.effective_until ||
-              new Date(r.effective_until).getTime() > Date.now()),
-        )?.price ??
-          (t.channel === "email" ? 10 : t.channel === "sms" ? 350 : 500),
+        rate
+          ? Number(rate.price) * Number(rate.fx_to_idr ?? 1)
+          : demoRates[t.channel as keyof typeof demoRates],
       ) *
-        Number(
-          dataset?.row_count ??
-            data.datasets.find((d) => d.id === dataset?.id)?.row_count ??
-            dataset?.rows.length ??
-            0,
-        ),
-    0,
-  );
+        Number(activeDataset?.row_count ?? 0)
+    );
+  }, 0);
   return (
     <Modal
       title={initialCampaign ? tr("Revisi kampanye") : tr("Buat kampanye")}
@@ -2606,38 +2644,73 @@ function CampaignForm({
         </div>
       )}
       <form
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
           const f = new FormData(e.currentTarget);
-          void save({
-            name: f.get("name"),
-            datasetId: f.get("datasetId"),
-            ...(providerId ? { providerAccountId: providerId } : {}),
-            templateIds,
-            costCentreId: f.get("costCentreId"),
-            spendingCeiling: f.get("ceiling"),
-            mode,
-            timeZone,
-            fieldMap,
-            ...(mode !== "immediate"
-              ? {
-                  scheduledAt: DateTime.fromISO(String(f.get("scheduledAt")), {
-                    zone: timeZone,
+          setSaving(true);
+          setFormError("");
+          try {
+            const source =
+              inputMode === "manual"
+                ? await api("datasets", "POST", {
+                    name: String(f.get("name")).slice(0, 110) + " · manual",
+                    format: "json",
+                    content: JSON.stringify([manualValues]),
                   })
-                    .toUTC()
-                    .toISO(),
-                }
-              : {}),
-            ...(mode === "recurring"
-              ? {
-                  recurrence: {
-                    frequency: f.get("frequency"),
-                    interval: Number(f.get("interval")),
-                    count: Number(f.get("count")),
-                  },
-                }
-              : {}),
-          });
+                : { id: sourceId };
+            await save({
+              name: f.get("name"),
+              datasetId: source.id,
+              ...(providerId ? { providerAccountId: providerId } : {}),
+              templateIds,
+              costCentreId: f.get("costCentreId"),
+              spendingCeiling: f.get("ceiling"),
+              mode,
+              timeZone,
+              fieldMap: Object.fromEntries(
+                vars.map((v) => [
+                  v,
+                  inputMode === "manual" ? v : (fieldMap[v] ?? v),
+                ]),
+              ),
+              recipientFields: Object.fromEntries(
+                selectedChannels.map((channel) => [
+                  channel,
+                  inputMode === "manual"
+                    ? "recipient_" + channel
+                    : (recipientFields[channel] ??
+                      recipientColumns[
+                        channel as keyof typeof recipientColumns
+                      ]),
+                ]),
+              ),
+              ...(mode !== "immediate"
+                ? {
+                    scheduledAt: DateTime.fromISO(
+                      String(f.get("scheduledAt")),
+                      {
+                        zone: timeZone,
+                      },
+                    )
+                      .toUTC()
+                      .toISO(),
+                  }
+                : {}),
+              ...(mode === "recurring"
+                ? {
+                    recurrence: {
+                      frequency: f.get("frequency"),
+                      interval: Number(f.get("interval")),
+                      count: Number(f.get("count")),
+                    },
+                  }
+                : {}),
+            });
+          } catch (error) {
+            setFormError((error as Error).message);
+          } finally {
+            setSaving(false);
+          }
         }}
       >
         <div className="form-step">
@@ -2654,27 +2727,48 @@ function CampaignForm({
               defaultValue={initial?.name ?? initialCampaign?.name ?? ""}
             />
           </Field>
-          <Field label={tr("Sumber data")}>
+          <Field label={tr("Mode penerima")}>
             <Select
-              name="datasetId"
-              required
-              value={sourceId}
-              onChange={(e) => void loadDataset(e.target.value)}
+              value={inputMode}
+              onChange={(e) => {
+                setInputMode(e.target.value);
+                setFormError("");
+              }}
             >
-              <option value="" disabled>
-                {tr("Pilih sumber")}
+              <option value="dataset">{tr("Dari source data")}</option>
+              <option value="manual" disabled={!!initialCampaign}>
+                {tr("Input langsung · satu penerima")}
               </option>
-              {sources
-                .filter((d) => d.team_id === targetTeam)
-                .map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name} · {d.row_count}
-                    {tr(" baris")}
-                  </option>
-                ))}
             </Select>
           </Field>
+          {inputMode === "dataset" && (
+            <Field label={tr("Sumber data")}>
+              <Select
+                name="datasetId"
+                required
+                value={sourceId}
+                onChange={(e) => void loadDataset(e.target.value)}
+              >
+                <option value="" disabled>
+                  {tr("Pilih sumber")}
+                </option>
+                {sources
+                  .filter((d) => d.team_id === targetTeam)
+                  .map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name} · {d.row_count}
+                      {tr(" baris")}
+                    </option>
+                  ))}
+              </Select>
+            </Field>
+          )}
         </div>
+        <p className="hint">
+          {tr(
+            "Untuk banyak penerima, gunakan CSV/XLSX atau source API. Pilih kolom tujuan untuk setiap channel.",
+          )}
+        </p>
         <div className="form-step">
           <span>2</span>
           <h3>{tr("Pilih kanal dan template")}</h3>
@@ -2705,14 +2799,133 @@ function CampaignForm({
                     )
                   }
                 />
-                <b>{t.channel}</b>
+                <b>{channelLabels[t.channel as keyof typeof channelLabels]}</b>
                 <small>
                   {t.name}
                   {tr(" \u00B7 v")}
                   {t.version}
                 </small>
+                <small>
+                  {variables(t.body).length} {tr("parameter")}:{" "}
+                  {variables(t.body).join(", ") || tr("Tanpa parameter")}
+                </small>
               </label>
             ))}
+        </div>
+        <details className="quick-template">
+          <summary>{tr("Buat template untuk channel lain")}</summary>
+          <div className="form-grid">
+            <Field label={tr("Nama template baru")}>
+              <input
+                value={quick.name}
+                onChange={(e) => setQuick({ ...quick, name: e.target.value })}
+              />
+            </Field>
+            <Field label={tr("Channel template baru")}>
+              <Select
+                value={quick.channel}
+                onChange={(e) =>
+                  setQuick({ ...quick, channel: e.target.value })
+                }
+              >
+                {channels.map((c) => (
+                  <option key={c} value={c}>
+                    {channelLabels[c]}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+          <Field label={tr("Isi template baru")}>
+            <textarea
+              value={quick.body}
+              placeholder="Hello {{name}}"
+              onChange={(e) => setQuick({ ...quick, body: e.target.value })}
+            />
+          </Field>
+          <button
+            type="button"
+            className="secondary"
+            disabled={quick.name.trim().length < 3 || !quick.body.trim()}
+            onClick={async () => {
+              try {
+                const t = await api("templates", "POST", quick);
+                setCatalog((prev) => [t, ...prev]);
+                setTemplateIds((prev) => [
+                  ...prev.filter(
+                    (id) =>
+                      catalog.find((t) => t.id === id)?.channel !== t.channel,
+                  ),
+                  t.id,
+                ]);
+                setQuick({ name: "", channel: quick.channel, body: "" });
+                setFormError("");
+              } catch (e) {
+                setFormError((e as Error).message);
+              }
+            }}
+          >
+            {tr("Simpan dan pilih template")}
+          </button>
+        </details>
+        <div className="recipient-mapping form-grid">
+          {selectedChannels.map((channel) => (
+            <Field
+              key={channel}
+              label={tr("Penerima {0}", {
+                "0": channelLabels[channel as keyof typeof channelLabels],
+              })}
+              hint={
+                channel === "push"
+                  ? tr(
+                      "Registration token atau alias perangkat dari provider; berbeda dengan notifikasi internal pengguna.",
+                    )
+                  : channel === "slack"
+                    ? tr("Gunakan Slack channel/user ID.")
+                    : channel === "telegram"
+                      ? tr("Gunakan Telegram chat ID atau @channel.")
+                      : undefined
+              }
+            >
+              {inputMode === "manual" ? (
+                <input
+                  type={channel === "email" ? "email" : "text"}
+                  required
+                  value={manualValues["recipient_" + channel] ?? ""}
+                  onChange={(e) =>
+                    setManualValues({
+                      ...manualValues,
+                      ["recipient_" + channel]: e.target.value,
+                    })
+                  }
+                />
+              ) : (
+                <Select
+                  required
+                  value={
+                    recipientFields[channel] ??
+                    recipientColumns[channel as keyof typeof recipientColumns]
+                  }
+                  onChange={(e) =>
+                    setRecipientFields({
+                      ...recipientFields,
+                      [channel]: e.target.value,
+                    })
+                  }
+                >
+                  {!columns.includes(
+                    recipientFields[channel] ??
+                      recipientColumns[
+                        channel as keyof typeof recipientColumns
+                      ],
+                  ) && <option value="">{tr("Pilih kolom tujuan")}</option>}
+                  {columns.map((column) => (
+                    <option key={column}>{column}</option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+          ))}
         </div>
         <Field label={tr("Akun penyedia")}>
           <Select
@@ -2721,7 +2934,14 @@ function CampaignForm({
           >
             <option value="">{tr("Simulator bawaan (tarif demo)")}</option>
             {providerData.accounts
-              .filter((a) => a.enabled && a.simulated)
+              .filter(
+                (a) =>
+                  a.enabled &&
+                  a.simulated &&
+                  selectedChannels.every((channel) =>
+                    a.channels.includes(channel),
+                  ),
+              )
               .map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name}
@@ -2735,24 +2955,34 @@ function CampaignForm({
           <div className="form-grid">
             {vars.map((v) => (
               <Field key={v} label={tr("Variabel {0}", { "0": v })}>
-                <Select
-                  value={fieldMap[v] ?? v}
-                  onChange={(e) =>
-                    setFieldMap({ ...fieldMap, [v]: e.target.value })
-                  }
-                >
-                  {!columns.includes(v) && (
-                    <option value={v}>{tr("Pilih kolom\u2026")}</option>
-                  )}
-                  {columns.map((c) => (
-                    <option key={c}>{c}</option>
-                  ))}
-                </Select>
+                {inputMode === "manual" ? (
+                  <input
+                    required
+                    value={manualValues[v] ?? ""}
+                    onChange={(e) =>
+                      setManualValues({ ...manualValues, [v]: e.target.value })
+                    }
+                  />
+                ) : (
+                  <Select
+                    value={fieldMap[v] ?? v}
+                    onChange={(e) =>
+                      setFieldMap({ ...fieldMap, [v]: e.target.value })
+                    }
+                  >
+                    {!columns.includes(v) && (
+                      <option value={v}>{tr("Pilih kolom\u2026")}</option>
+                    )}
+                    {columns.map((c) => (
+                      <option key={c}>{c}</option>
+                    ))}
+                  </Select>
+                )}
               </Field>
             ))}
           </div>
         )}
-        {dataset &&
+        {activeDataset &&
           templates.map((t) => (
             <div className="message-preview" key={t.id}>
               <small>
@@ -2764,8 +2994,9 @@ function CampaignForm({
                 {t.body.replace(
                   /\{\{\s*([a-zA-Z_][\w]*)\s*\}\}/g,
                   (_: string, key: string) =>
-                    dataset.rows[0]?.[fieldMap[key] ?? key] ??
-                    tr("[{0} belum diisi]", { "0": key }),
+                    activeDataset.rows[0]?.[
+                      inputMode === "manual" ? key : (fieldMap[key] ?? key)
+                    ] ?? tr("[{0} belum diisi]", { "0": key }),
                 )}
               </p>
             </div>
@@ -2890,7 +3121,7 @@ function CampaignForm({
               {tr(" tingkat persetujuan diperlukan")}
             </b>
             <p>
-              {dataset?.row_count ?? 0}
+              {activeDataset?.row_count ?? 0}
               {tr(" penerima \u00D7 ")}
               {templateIds.length}
               {tr(" kanal \u00B7 Estimasi awal ")}
@@ -2910,10 +3141,11 @@ function CampaignForm({
             className="primary"
             disabled={
               busy ||
+              saving ||
               !!formError ||
               !templateIds.length ||
               templateIds.length !== templates.length ||
-              !dataset ||
+              !activeDataset ||
               (!!providerId &&
                 !providerData.accounts.some(
                   (a) => a.id === providerId && a.enabled && a.simulated,

@@ -76,7 +76,11 @@ test("creator to two approvers to local message timeline", async ({ page }) => {
   await selectOption(dialog.getByLabel("Sumber data", { exact: true }), {
     label: "Kontak contoh (data sintetis) · 3 baris",
   });
-  await dialog.getByText("email", { exact: true }).click();
+  await dialog
+    .locator(".template-choices label")
+    .filter({ hasText: "Pengingat email" })
+    .first()
+    .click();
   await expect(dialog.getByText(/Halo Ayu Demo/)).toBeVisible();
   await dialog
     .getByRole("button", { name: "Ajukan persetujuan", exact: true })
@@ -232,7 +236,11 @@ test("scheduled campaign can be paused, resumed, and cancelled with reasons", as
   await selectOption(dialog.getByLabel("Sumber data", { exact: true }), {
     label: "Kontak contoh (data sintetis) · 3 baris",
   });
-  await dialog.getByText("email", { exact: true }).click();
+  await dialog
+    .locator(".template-choices label")
+    .filter({ hasText: "Pengingat email" })
+    .first()
+    .click();
   await selectOption(dialog.getByLabel("Pengiriman", { exact: true }), "once");
   const future = new Date(Date.now() + 3600000)
     .toLocaleString("sv-SE", { timeZone: "Asia/Jakarta" })
@@ -304,10 +312,10 @@ test("admin configures a multichannel simulator and encrypted account without co
     .click();
   const panel = page.locator(".provider-panel");
   await panel
-    .getByRole("button", { name: "Tambah penyedia", exact: true })
+    .getByRole("button", { name: "Tambah provider", exact: true })
     .click();
   const name = `Provider browser ${Date.now()}`;
-  await panel.getByLabel("Nama penyedia", { exact: true }).fill(name);
+  await panel.getByLabel("Nama provider", { exact: true }).fill(name);
   await panel
     .getByRole("button", { name: "Simpan draf penyedia", exact: true })
     .click();
@@ -321,19 +329,21 @@ test("admin configures a multichannel simulator and encrypted account without co
   await row.getByRole("button", { name: "Publikasikan", exact: true }).click();
   await expect(row.getByText("Dipublikasikan", { exact: true })).toBeVisible();
   await panel
-    .getByRole("button", { name: "Akun dan pengirim", exact: true })
+    .getByRole("button", { name: "Account & sender", exact: true })
     .click();
   await panel.getByRole("button", { name: "Tambah akun", exact: true }).click();
   const account = `Account browser ${Date.now()}`;
-  await panel.getByLabel("Nama akun penyedia", { exact: true }).fill(account);
+  await panel
+    .getByLabel("Nama account provider", { exact: true })
+    .fill(account);
   await selectOption(panel.getByLabel("Definisi akun", { exact: true }), {
     label: `${name} · v1`,
   });
   await panel
-    .getByLabel("Identitas pengirim", { exact: true })
+    .getByLabel("Sender ID / alamat From", { exact: true })
     .fill("Browser Demo");
   await panel
-    .getByLabel("API key penyedia", { exact: true })
+    .getByLabel("API key provider", { exact: true })
     .fill("synthetic-browser-key");
   await panel.getByLabel("Tarif awal email (IDR)", { exact: true }).fill("25");
   await panel.getByRole("button", { name: "Simpan akun", exact: true }).click();
@@ -449,7 +459,11 @@ test("returned campaign can be revised and resubmitted with preserved decisions"
   await selectOption(dialog.getByLabel("Sumber data", { exact: true }), {
     label: "Kontak contoh (data sintetis) · 3 baris",
   });
-  await dialog.getByText("email", { exact: true }).click();
+  await dialog
+    .locator(".template-choices label")
+    .filter({ hasText: "Pengingat email" })
+    .first()
+    .click();
   await selectOption(dialog.getByLabel("Pengiriman", { exact: true }), "once");
   await dialog
     .getByLabel("Mulai (sesuai zona waktu kampanye)", { exact: true })
@@ -741,11 +755,13 @@ test("command search opens monitoring and finance screens distinguish unavailabl
     .fill("Pemantauan");
   await command.getByRole("button", { name: /Pemantauan kanal/ }).click();
   await expect(page).toHaveURL(/\/channels$/);
+  await expect(page.locator(".monitoring-card")).toHaveCount(6);
+  const pushCard = page
+    .locator(".monitoring-card")
+    .filter({ hasText: "Push notification" });
   await expect(
-    page
-      .getByText("Belum dikonfigurasi", { exact: true })
-      .or(page.getByText("Not configured", { exact: true })),
-  ).toBeVisible();
+    pushCard.getByRole("button", { name: /Lihat pesan/ }),
+  ).toBeEnabled();
   await page
     .getByRole("navigation")
     .getByRole("button", { name: "Penggunaan & biaya", exact: true })

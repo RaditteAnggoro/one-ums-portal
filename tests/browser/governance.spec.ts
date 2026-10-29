@@ -19,7 +19,7 @@ async function signIn(page: Page, role = "admin", domain = "demo.local") {
     logout.or(page.getByLabel("Email", { exact: true })),
   ).toBeVisible();
   if (await logout.isVisible()) await logout.click();
-  const language = page.getByRole("combobox");
+  const language = page.getByRole("combobox", { name: /^(Bahasa|Language)$/ });
   if ((await page.locator("html").getAttribute("lang")) === "en")
     await choose(language, "id");
   await page.getByLabel("Email", { exact: true }).fill(`${role}@${domain}`);
@@ -396,7 +396,7 @@ test("restrained login has empty credentials and understated application provena
   await expect(page.getByLabel("Email", { exact: true })).toHaveValue("");
   await expect(page.getByLabel("Kata sandi", { exact: true })).toHaveValue("");
   await expect(page.locator(".login-visual")).toHaveCount(0);
-  await expect(page.locator(".demo-accounts")).toHaveCount(0);
+  await expect(page.locator(".demo-accounts")).toBeVisible();
   await expect(page.locator('meta[name="author"]')).toHaveAttribute(
     "content",
     "Raditte Anggoro",

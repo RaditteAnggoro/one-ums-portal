@@ -1,7 +1,30 @@
 import { Decimal } from "decimal.js";
 
-export const channels = ["email", "sms", "whatsapp"] as const;
+export const channels = [
+  "email",
+  "sms",
+  "whatsapp",
+  "slack",
+  "telegram",
+  "push",
+] as const;
 export type Channel = (typeof channels)[number];
+export const channelNames: Record<Channel, string> = {
+  email: "Email",
+  sms: "SMS",
+  whatsapp: "WhatsApp",
+  slack: "Slack",
+  telegram: "Telegram",
+  push: "Push notification",
+};
+export const recipientColumns: Record<Channel, string> = {
+  email: "email",
+  sms: "phone",
+  whatsapp: "phone",
+  slack: "slack_id",
+  telegram: "telegram_chat_id",
+  push: "push_token",
+};
 export type DataRow = Record<string, string>;
 
 export function variables(body: string): string[] {
@@ -26,6 +49,23 @@ export function destination(channel: Channel, value: string): string {
       throw new Error("Alamat email tidak valid.");
     return clean.toLowerCase();
   }
+  if (channel === "slack") {
+    if (!/^[CDGU][A-Z0-9]{5,63}$/.test(clean))
+      throw new Error("Gunakan Slack channel/user ID, bukan nama tampilan.");
+    return clean;
+  }
+  if (channel === "telegram") {
+    if (!/^-?\d{1,20}$/.test(clean) && !/^@[A-Za-z0-9_]{5,64}$/.test(clean))
+      throw new Error("Gunakan Telegram chat ID atau @channel.");
+    return clean;
+  }
+  if (channel === "push") {
+    if (clean.length < 3 || clean.length > 4096 || /[\s<>]/.test(clean))
+      throw new Error(
+        "Gunakan registration token atau alias perangkat dari provider Push.",
+      );
+    return clean;
+  }
   const number = clean.replace(/[\s()+-]/g, "").replace(/^0/, "62");
   if (!/^62\d{8,13}$/.test(number))
     throw new Error("Gunakan nomor Indonesia: 08… atau +62….");
@@ -37,6 +77,9 @@ export const demoRates: Record<Channel, string> = {
   email: "10",
   sms: "350",
   whatsapp: "500",
+  slack: "0",
+  telegram: "0",
+  push: "0",
 };
 export function estimate(
   channel: Channel,

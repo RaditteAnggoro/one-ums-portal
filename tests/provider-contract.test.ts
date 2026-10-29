@@ -63,3 +63,32 @@ describe("provider contract boundaries", () => {
     expect(() => decryptSecret(parts.join("."))).toThrow();
   });
 });
+
+it("maps individual template variables without permitting prototype or arbitrary code lookups", () => {
+  expect(
+    mapRequest(
+      { reference: "{{variables.loan_no}}", parameters: "{{parameters}}" },
+      { variables: { loan_no: "L-42" }, parameters: ["Ada", "L-42"] },
+    ),
+  ).toEqual({ reference: "L-42", parameters: ["Ada", "L-42"] });
+  expect(() =>
+    mapRequest("{{variables.constructor}}", { variables: {} }),
+  ).toThrow();
+  const config = {
+    endpoint: "https://api.example.test/send",
+    allowedHosts: ["api.example.test"],
+    requestBody: { text: "{{body}}" },
+  };
+  expect(() =>
+    genericContract.parse({
+      ...config,
+      headers: { "X-API-Key": "literal-secret" },
+    }),
+  ).toThrow();
+  expect(
+    genericContract.parse({
+      ...config,
+      headers: { "X-API-Key": "{{credential.apiKey}}" },
+    }).method,
+  ).toBe("POST");
+});

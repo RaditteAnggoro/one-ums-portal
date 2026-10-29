@@ -1617,7 +1617,7 @@ tbody tr:hover {
 .login-card > .eyebrow {
   color: var(--brand-primary);
 }
-.demo-accounts button {
+.demo-accounts > button {
   border-color: var(--border);
   background: var(--surface);
   color: var(--muted);
@@ -3249,4 +3249,78 @@ blockquote,
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 18px;
+}
+
+.demo-accounts {
+  border-top: 1px solid var(--border);
+  padding-top: 18px;
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.demo-accounts h3,
+.demo-accounts > .ums-select {
+  grid-column: 1/-1;
+}
+.demo-accounts h3 {
+  font-size: 13px;
+  margin: 0 0 4px;
+}
+.demo-accounts > button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.demo-accounts small {
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+.login-center {
+  padding-top: 28px;
+  padding-bottom: 28px;
+}
+.quick-template,
+.recipient-mapping,
+.mapping-preview {
+  margin: 18px 0;
+}
+.quick-template summary,
+.mapping-preview summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.mapping-preview pre,
+.provider-panel pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 360px;
+  overflow: auto;
+}
+.provider-panel .admin-form {
+  margin: 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+.provider-panel .field input,
+.provider-panel .field textarea {
+  width: 100%;
+  min-width: 0;
+}
+.provider-panel .field {
+  min-width: 0;
+}
+.provider-panel .form-grid {
+  align-items: start;
+}
+.provider-panel .admin-form details {
+  margin: 16px 0;
 }

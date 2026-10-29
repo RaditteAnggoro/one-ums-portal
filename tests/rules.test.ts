@@ -9,6 +9,27 @@ import {
   billableUnits,
 } from "../packages/domain/src/rules.js";
 describe("template and cost rules", () => {
+  it("keeps distinct 0/1/3 parameter sets and validates channel-specific destinations", () => {
+    expect(variables("No values")).toEqual([]);
+    expect(variables("{{loan}}")).toEqual(["loan"]);
+    expect(variables("{{name}} {{loan}} {{date}} {{name}}")).toEqual([
+      "name",
+      "loan",
+      "date",
+    ]);
+    expect(destination("slack", "C12345678")).toBe("C12345678");
+    expect(destination("telegram", "-10012345678")).toBe("-10012345678");
+    expect(destination("push", "opaque-device-token")).toBe(
+      "opaque-device-token",
+    );
+    for (const [channel, value] of [
+      ["slack", "marketing"],
+      ["telegram", "display name"],
+      ["push", "invalid token"],
+    ])
+      expect(() => destination(channel as any, value)).toThrow();
+  });
+
   it("renders values as data without evaluating expressions", () => {
     expect(variables("Hi {{ name }} / {{name}} {{reference}}")).toEqual([
       "name",

@@ -1,0 +1,10 @@
+ALTER TABLE templates DROP CONSTRAINT templates_channel_check;
+ALTER TABLE templates ADD CONSTRAINT templates_channel_check CHECK(channel IN ('email','sms','whatsapp','slack','telegram','push'));
+ALTER TABLE rate_cards DROP CONSTRAINT rate_cards_channel_check;
+ALTER TABLE rate_cards ADD CONSTRAINT rate_cards_channel_check CHECK(channel IN ('email','sms','whatsapp','slack','telegram','push'));
+ALTER TABLE rate_cards DROP CONSTRAINT rate_cards_currency_check;
+ALTER TABLE rate_cards ADD CONSTRAINT rate_cards_currency_check CHECK(currency ~ '^[A-Z]{3}$');
+ALTER TABLE rate_cards ALTER COLUMN price TYPE numeric(24,8);
+ALTER TABLE rate_cards ADD COLUMN fx_to_idr numeric(20,8) NOT NULL DEFAULT 1 CHECK(fx_to_idr>0);
+ALTER TABLE rate_cards ADD CONSTRAINT rate_idr_fx_check CHECK(currency<>'IDR' OR fx_to_idr=1);
+ALTER TABLE provider_account_versions ADD COLUMN metadata jsonb NOT NULL DEFAULT '{}';

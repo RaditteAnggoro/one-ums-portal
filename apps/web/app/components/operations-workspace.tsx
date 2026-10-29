@@ -1,5 +1,13 @@
 "use client";
 import {
+  channels,
+  channelNames as channelLabels,
+  recipientColumns,
+  variables,
+  render,
+  demoRates,
+} from "../../../../packages/domain/src/rules";
+import {
   statusLabel,
   messageStatusCodes,
 } from "../../../../packages/domain/src/status";
@@ -56,7 +64,9 @@ const channelNames: Row = {
   email: "Email",
   sms: "SMS",
   whatsapp: "WhatsApp",
-  push: "Push",
+  push: "Push notification",
+  slack: "Slack",
+  telegram: "Telegram",
 };
 const statusNames: Row = {
   QUEUED: "Antrean",
@@ -647,25 +657,21 @@ export function OperationsDashboard({
             <Activity size={18} />
           </div>
           <div className="channel-performance">
-            {["whatsapp", "email", "sms", "push"].map((channel) => {
+            {channels.map((channel) => {
               const r = data.channels.find((r: Row) => r.channel === channel);
               return (
                 <button
                   key={channel}
                   onClick={() =>
-                    channel !== "push" &&
                     navigate("messages", `channel=${channel}&days=${days}`)
                   }
-                  disabled={channel === "push"}
                 >
                   <span>
                     <Channel value={channel} />
                     <small>
                       {r
                         ? `${number(r.total)} requests`
-                        : channel === "push"
-                          ? tr("Belum dikonfigurasi")
-                          : tr("Belum ada pengamatan")}
+                        : tr("Belum ada pengamatan")}
                     </small>
                   </span>
                   <span>
@@ -879,7 +885,7 @@ export function MessageExplorer({
             onChange={(e) => change({ channel: e.target.value })}
           >
             <option value="all">{tr("Semua kanal")}</option>
-            {["email", "sms", "whatsapp"].map((c) => (
+            {channels.map((c) => (
               <option key={c} value={c}>
                 {tr(channelNames[c])}
               </option>
@@ -1359,18 +1365,14 @@ export function ChannelMonitoring({
         </p>
       </div>
       <div className="monitoring-grid">
-        {["whatsapp", "email", "sms", "push"].map((channel) => {
+        {channels.map((channel) => {
           const r = data.channels.find((r: Row) => r.channel === channel);
           return (
             <section className="panel monitoring-card" key={channel}>
               <div className="panel-heading">
                 <Channel value={channel} />
                 <span className="neutral-chip">
-                  {channel === "push"
-                    ? tr("Not configured")
-                    : r
-                      ? tr("Simulated")
-                      : tr("No observations")}
+                  {r ? tr("Simulated") : tr("No observations")}
                 </span>
               </div>
               <dl className="monitoring-metrics">
@@ -1403,7 +1405,7 @@ export function ChannelMonitoring({
                   <dd>{timestamp(r?.oldest_queued_at)}</dd>
                 </div>
               </dl>
-              {channel !== "push" && (
+              {true && (
                 <div className="monitoring-actions">
                   <button
                     className="secondary"

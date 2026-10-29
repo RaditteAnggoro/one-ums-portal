@@ -1,0 +1,11 @@
+# Campaign, demo access and integration management — 29 October 2026
+
+Latest five-point user request: restore visible demo accounts, genuinely template-dependent parameters, explicit recipients/new channels including Push, usable integration/account/sender/rate management with API headers/body/template mappings and currencies, natural Indonesian terminology.
+
+Implement using current server authority and immutable approvals/rates. Campaign recipients are explicit column mappings per channel; an optional single-recipient form creates a scoped immutable dataset using the existing import API. Resolve only parameters used by the selected templates, show each template's parameter list and preview, and permit inline template creation. Support email/SMS/WhatsApp/Slack/Telegram/Push through the full simulated queue/reporting path; no external message transmission. Customer Push target is a provider registration token/alias, distinct from internal device notification subscriptions.
+
+Provider management forms must open visibly above lists, support immutable definition/account versions, typed API endpoint/method/auth/header/body and response mappings, secret-only encrypted credentials with partial rotation retaining other keys, sender/channel metadata, and effective-dated per-connection/channel tariffs. Vendor prices may use recognized ISO currencies with explicit administrator-supplied FX-to-IDR; settlement remains IDR and links to immutable rate history. No live exchange feed or vendor/Meta certification is implied.
+
+Demo shortcuts remain clearly available on this demonstration build; normal production build defaults retain explicit opt-in and no automatic demo bootstrap. Keep ordinary Indonesian workflow copy and familiar technical terms (Provider, Sender, Rate card, API key, Template, Preview, Channel).
+
+Verify dynamic 0/1/3+ parameters, correct source-column/manual recipients, tenant/team scope and malformed channel destinations; new-channel simulation, currency conversion and secret preservation/redaction; integration/account/rate CRUD-version workflow in browser; existing approvals, maintenance, audit, sidebar and locale regressions. Keep previous SaaS/Meta lifecycle work outstanding separately.

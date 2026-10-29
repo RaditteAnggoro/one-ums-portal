@@ -26,6 +26,7 @@ export function LoginScreen({
 }) {
   const { locale, setLocale } = useLanguage(),
     [visible, setVisible] = useState(false),
+    [demoDomain, setDemoDomain] = useState("demo.local"),
     id = useId();
   return (
     <main className="ums-login">
@@ -108,21 +109,34 @@ export function LoginScreen({
             {tr("Belum memiliki akses? Hubungi admin perusahaan Anda.")}
           </p>
           {process.env.NEXT_PUBLIC_DEMO_ACCOUNTS === "true" && (
-            <details className="demo-accounts">
-              <summary>{tr("Akun demonstrasi")}</summary>
-              {["creator", "approver", "finance", "admin"].map((role) => (
-                <button
-                  type="button"
-                  key={role}
-                  onClick={() => {
-                    setEmail(`${role}@demo.local`);
-                    setPassword("LocalDemo123!");
-                  }}
-                >
-                  {role}
-                </button>
-              ))}
-            </details>
+            <section className="demo-accounts">
+              <h3>{tr("Akun demo untuk testing")}</h3>
+              <Select
+                aria-label={tr("Perusahaan demo")}
+                value={demoDomain}
+                onChange={(e) => setDemoDomain(e.target.value)}
+              >
+                <option value="demo.local">Nusantara Demo</option>
+                <option value="other.local">{tr("Perusahaan kedua")}</option>
+              </Select>
+              {["creator", "approver", "finance", "admin", "viewer"].map(
+                (role) => (
+                  <button
+                    type="button"
+                    key={role}
+                    onClick={() => {
+                      setEmail(`${role}@${demoDomain}`);
+                      setPassword("LocalDemo123!");
+                    }}
+                  >
+                    <b>{role}</b>
+                    <small>
+                      {role}@{demoDomain}
+                    </small>
+                  </button>
+                ),
+              )}
+            </section>
           )}
         </section>
         <p className="login-footnote">One UMS · {tr("Akses perusahaan")}</p>

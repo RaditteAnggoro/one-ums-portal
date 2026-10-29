@@ -654,3 +654,68 @@ guideArticles.push(
     },
   },
 );
+
+guideArticles.push(
+  {
+    id: "campaign-recipient-mapping",
+    menu: "campaigns",
+    permission: "campaigns:create",
+    idText: {
+      title: "Parameter template dan penerima per channel",
+      summary:
+        "Pilih source data atau input satu penerima dengan tujuan yang jelas.",
+      steps: [
+        "Buat campaign dan pilih Mode penerima: Dari source data untuk CSV/XLSX/API, atau Input langsung untuk satu penerima.",
+        "Pilih template. Setiap kartu menampilkan jumlah/nama parameter. Kolom parameter berubah saat template diganti; template tanpa parameter tidak meminta nilai.",
+        "Pilih kolom tujuan untuk setiap channel, atau isi email/nomor/Slack ID/Telegram chat ID/Push token pada input langsung. Isi nilai atau mapping untuk parameter yang tampil.",
+        "Gunakan Buat template untuk channel lain bila belum tersedia. Periksa Preview, biaya dan jadwal, lalu ajukan approval.",
+        "Pada detail campaign, periksa contoh tujuan dan isi tiap channel sebelum menyetujui.",
+      ],
+      note: "Slack/Telegram/Push menggunakan simulasi pada versi ini. Token Push penerima berbeda dari subscription notifikasi internal pengguna. Input langsung disimpan sebagai dataset berversi dengan cakupan tim.",
+    },
+    enText: {
+      title: "Template parameters and channel recipients",
+      summary:
+        "Choose source data or a single recipient with explicit destinations.",
+      steps: [
+        "Create a campaign and select Recipient mode: From source data for CSV/XLSX/API, or Direct input for one recipient.",
+        "Select a template. Cards show parameter names/counts. Fields change when the template changes; a template with no parameters asks for no values.",
+        "Map a destination column per channel or enter the email/phone/Slack ID/Telegram chat ID/Push token directly. Supply values or column mappings for the displayed parameters.",
+        "Create a template for another channel if needed. Check previews, costs and schedule, then submit for approval.",
+        "Review one destination/content sample per channel in campaign details before approving.",
+      ],
+      note: "Slack/Telegram/Push use simulation in this version. Customer Push tokens are separate from internal user notification subscriptions. Direct input creates a versioned team-scoped dataset.",
+    },
+  },
+  {
+    id: "integration-management",
+    menu: "providers",
+    permission: "admin:write",
+    idText: {
+      title: "Integration, sender dan rate card",
+      summary:
+        "Kelola konfigurasi API, credentials dan kontrak tarif yang dapat ditelusuri.",
+      steps: [
+        "Buka Vendor & integrasi → Integrations → Tambah provider. Form muncul di atas daftar; pilih simulator atau Generic HTTP.",
+        "Untuk HTTP isi endpoint, method, authentication, header JSON, body mapping dan response message ID path. Preview dapat menggunakan template dan contoh parameter; validasi ini tidak menghubungi vendor.",
+        "Validasi mapping lalu publikasikan. Di Account & sender, buat account dari definisi yang dipublikasikan, isi sender serta identitas channel dan credentials. Secret tidak ditampilkan kembali.",
+        "Gunakan Versi baru untuk perubahan sender atau rotasi sebagian credentials; key lain dipertahankan. Penghapusan seluruh credentials merupakan pilihan eksplisit.",
+        "Di Rate cards tambahkan tarif per account/channel, currency dan waktu berlaku. Currency selain IDR memerlukan kurs ke IDR; budget/ledger tetap IDR.",
+      ],
+      note: "Konfigurasi HTTP tersimpan belum berarti transport nyata aktif. Implementasi adapter dan sandbox vendor/Meta masih diperlukan. Kurs diisi admin, bukan diambil otomatis.",
+    },
+    enText: {
+      title: "Integrations, senders and rate cards",
+      summary:
+        "Manage API configuration, credentials and traceable pricing contracts.",
+      steps: [
+        "Open Providers & integrations → Integrations → Add provider. Forms appear above lists; choose simulator or Generic HTTP.",
+        "For HTTP enter endpoint, method, authentication, JSON headers/body and response message ID path. Preview can use a template and sample parameters; validation makes no vendor contact.",
+        "Validate mappings and publish. Under Account & sender create an account from the published definition, with sender/channel identity and encrypted credentials. Secrets are never shown again.",
+        "Create a new version for sender changes or partial credential rotation; other keys are retained. Clearing all credentials requires explicit selection.",
+        "Under Rate cards set account/channel, currency and effective time. Non-IDR prices require an FX rate to IDR; budgets/ledger remain IDR.",
+      ],
+      note: "Saved HTTP configuration is not active real transport. Vendor/Meta adapter and sandbox verification remain necessary. The administrator supplies FX; no automatic rate feed is used.",
+    },
+  },
+);

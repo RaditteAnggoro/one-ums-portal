@@ -1,3 +1,4 @@
+import { channels } from "./rules.js";
 import { z } from "zod";
 export const widgetNames = [
   "campaigns",
@@ -18,7 +19,7 @@ export const dashboardSchema = z.object({
     .default({}),
   filters: z
     .object({
-      channel: z.enum(["all", "email", "sms", "whatsapp"]).default("all"),
+      channel: z.enum(["all", ...channels]).default("all"),
       days: z.enum(["all", "1", "7", "30", "90"]).default("all"),
     })
     .default({ channel: "all", days: "all" }),

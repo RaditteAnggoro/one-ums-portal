@@ -1,3 +1,4 @@
+import { seedCampaignExamples } from "./demo-campaign-examples.js";
 import { migrate } from "./migrate-db.js";
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
@@ -259,6 +260,7 @@ async function main() {
       }
     }
   });
+  await seedCampaignExamples();
   console.log(
     "Database ready. Synthetic demo: creator / approver / finance / admin @demo.local. Password from DEMO_PASSWORD (local default in .env.example).",
   );

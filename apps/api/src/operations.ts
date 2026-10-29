@@ -1,3 +1,4 @@
+import { channels } from "../../../packages/domain/src/rules.js";
 import {
   Controller,
   Get,
@@ -12,7 +13,7 @@ import { pool } from "./db.js";
 import { actorFor, scope, scopeValues, type Actor } from "./context.js";
 
 const filterSchema = z.object({
-  channel: z.enum(["all", "email", "sms", "whatsapp"]).default("all"),
+  channel: z.enum(["all", ...channels]).default("all"),
   days: z.enum(["all", "1", "7", "30", "90"]).default("7"),
   status: z.enum(["all", ...messageStatusCodes]).default("all"),
   search: z.string().trim().max(160).default(""),
