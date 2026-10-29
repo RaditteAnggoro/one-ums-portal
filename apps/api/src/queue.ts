@@ -95,6 +95,15 @@ export async function processMessage(messageId: string) {
     const m = await lockedMessage(db, messageId);
     if (!m || m.status !== "QUEUED") return;
     if (
+      (
+        await db.query(
+          "SELECT maintenance_enabled FROM companies WHERE id=$1 FOR SHARE",
+          [m.company_id],
+        )
+      ).rows[0]?.maintenance_enabled
+    )
+      return "deferred";
+    if (
       ["PAUSED", "RECOVERY_HOLD", "VALIDATION_HOLD"].includes(m.run_status) ||
       m.campaign_status === "PAUSED"
     )

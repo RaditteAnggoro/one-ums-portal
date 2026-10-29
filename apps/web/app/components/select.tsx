@@ -5,6 +5,7 @@ import {
   isValidElement,
   Fragment,
   useId,
+  useEffect,
   useRef,
   useState,
   type ReactNode,
@@ -62,6 +63,30 @@ function SingleSelect({
   const [invalid, setInvalid] = useState(false),
     trigger = useRef<HTMLButtonElement>(null),
     generated = useId();
+  const triggerId = id ?? `${generated}-trigger`;
+  const [inferredLabel, setInferredLabel] = useState<string | undefined>();
+  useEffect(() => {
+    const parent = trigger.current?.closest("label");
+    if (!parent) return;
+    const wrapper = trigger.current?.closest(".ums-select");
+    const text = [...parent.childNodes]
+      .filter(
+        (node) =>
+          node !== wrapper &&
+          !(node instanceof Element && wrapper && node.contains(wrapper)),
+      )
+      .map((node) => node.textContent ?? "")
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+    setInferredLabel(text || undefined);
+    if (!parent.htmlFor) {
+      parent.htmlFor = triggerId;
+      return () => {
+        if (parent.htmlFor === triggerId) parent.removeAttribute("for");
+      };
+    }
+  }, [triggerId, children]);
   const choose = (next: string) => {
     const actual = next === EMPTY ? "" : next;
     setInternal(actual);
@@ -90,7 +115,8 @@ function SingleSelect({
       >
         <Primitive.Trigger
           {...safe}
-          id={id}
+          id={triggerId}
+          aria-label={attributes["aria-label"] ?? inferredLabel}
           ref={trigger}
           className="ums-select-trigger"
           data-value={selected}

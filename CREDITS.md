@@ -22,3 +22,5 @@ One UMS adalah proyek portofolio independen. Referensi berikut memberi inspirasi
 - [Vitest](https://github.com/vitest-dev/vitest), [Playwright](https://github.com/microsoft/playwright), [Prettier](https://github.com/prettier/prettier).
 
 Redis licensing depends on the version and deployment/distribution model. Free self-hosting does not mean all redistribution or managed-service uses have identical terms. No paid messaging service is required for the default simulator.
+
+- [shadcn/ui](https://github.com/shadcn-ui/ui): login-01/login-02 source reviewed for restrained login structure. One UMS reuses its own components/authentication; details in docs/login-design-references.md.

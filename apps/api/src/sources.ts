@@ -10,6 +10,8 @@ import {
   UnauthorizedException,
   ConflictException,
 } from "@nestjs/common";
+import { maintenanceError } from "./governance.js";
+import { requestContext } from "./request-context.js";
 import type { Request } from "express";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
@@ -66,6 +68,15 @@ async function ingest(
 ) {
   const hash = tokenHash(JSON.stringify(rows));
   return transaction(async (db) => {
+    if (
+      (
+        await db.query(
+          "SELECT maintenance_enabled FROM companies WHERE id=$1 FOR SHARE",
+          [actor.company_id],
+        )
+      ).rows[0]?.maintenance_enabled
+    )
+      throw maintenanceError();
     const source = (
       await db.query(
         `SELECT * FROM source_connections WHERE ${scope(actor)} AND id=$4 AND active FOR UPDATE`,
@@ -271,7 +282,7 @@ export class IncomingController {
     if (!token) throw new UnauthorizedException();
     const a = (
       await pool.query(
-        `SELECT u.id,u.company_id,s.team_id,u.role_id,u.email,u.name,u.profile,r.permissions,false AS company_scope,r.name AS role,c.name AS company
+        `SELECT u.id,u.company_id,s.team_id,u.role_id,u.email,u.name,u.profile,r.permissions,false AS company_scope,r.name AS role,c.name AS company,c.maintenance_enabled
       FROM source_keys k JOIN source_connections s ON s.id=k.source_id JOIN users u ON u.id=k.created_by JOIN roles r ON r.id=u.role_id JOIN companies c ON c.id=u.company_id
       WHERE k.token_hash=$1 AND k.source_id=$2 AND k.revoked_at IS NULL AND k.expires_at>now() AND s.active AND u.active AND u.company_id=s.company_id AND (r.company_scope OR u.team_id=s.team_id) AND r.permissions ? 'sources:write'`,
         [tokenHash(token), id],
@@ -281,6 +292,14 @@ export class IncomingController {
       throw new UnauthorizedException(
         "Kunci sumber tidak valid atau sudah berakhir.",
       );
+    if (a.maintenance_enabled) throw maintenanceError();
+    const context = requestContext.getStore();
+    if (context)
+      Object.assign(context, {
+        actorId: a.id,
+        companyId: a.company_id,
+        teamId: a.team_id,
+      });
     const rows = sourceRows(z.object({ rows: z.unknown() }).parse(input).rows);
     return ingest(
       { ...a, ip: req.ip ?? "unknown", correlationId: randomUUID() },

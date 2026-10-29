@@ -1748,9 +1748,462 @@ Object.assign(english, {
   "Ditampilkan browser": "Displayed by browser",
   "Buka pengaturan": "Open settings",
 });
-Object.assign(english, {penyedia:"provider", akun:"account", tarif:"rate", hentikan:"stop", jeda:"pause", lanjutkan:"resume", "Bahasa diperbarui.":"Language updated."});
-Object.assign(english,{"Administrator perlu mengatur persetujuan.":"An administrator needs to configure approvals.","Akun penyedia tidak aktif atau tidak mendukung kanal ini.":"The provider account is inactive or does not support this channel.","Alamat lokal, privat, atau infrastruktur tidak diizinkan.":"Local, private, or infrastructure addresses are not allowed.","Alamat sumber tidak dapat ditemukan.":"The source address could not be resolved.","Alasan wajib diisi.":"A reason is required.","Anggaran tidak ditemukan.":"Budget not found.","Cursor tidak valid.":"Invalid pagination cursor.","Eksekusi ini tidak dapat dijadwalkan ulang.":"This execution cannot be rescheduled.","Eksekusi menggunakan versi lama. Gunakan kampanye dengan versi yang telah disetujui.":"This execution uses an older version. Use the approved campaign version.","Eksekusi tidak ditemukan.":"Execution not found.","Eksekusi tidak tertahan pemulihan atau kampanye belum aktif.":"The execution is not on recovery hold, or the campaign is not active.","Gunakan HTTPS port standar tanpa kredensial di URL.":"Use the standard HTTPS port without credentials in the URL.","Gunakan HTTPS tanpa kredensial di URL.":"Use HTTPS without credentials in the URL.","Gunakan administrator lain untuk mengubah akses akun Anda.":"Ask another administrator to change your account access.","Gunakan gambar PNG, JPEG, atau WebP yang valid (maksimal 8 megapiksel).":"Use a valid PNG, JPEG, or WebP image (up to 8 megapixels).","Gunakan nilai, bukan formula, pada sumber data.":"Use values rather than formulas in source data.","Hanya draf yang dapat diajukan.":"Only drafts can be submitted.","Hanya eksekusi tertahan anggaran yang dapat diperiksa ulang.":"Only executions on budget hold can be checked again.","Hanya hasil simulasi yang belum terkonfirmasi dapat direkonsiliasi.":"Only unconfirmed simulated outcomes can be reconciled.","Hanya kampanye aktif yang dapat dijeda.":"Only active campaigns can be paused.","Isi pesan hasil penggabungan melampaui batas sumber daya lokal.":"Rendered message content exceeds the application resource limit.","Jadwal telah lewat. Pilih jadwalkan ulang.":"The scheduled time has passed. Choose reschedule.","Jalur data sumber tidak ditemukan.":"The source data path was not found.","Judul kolom harus unik dan tidak kosong.":"Column headers must be unique and non-empty.","Kampanye harus aktif dan disetujui sebelum eksekusi.":"The campaign must be active and approved before execution.","Kampanye tidak sedang dijeda.":"The campaign is not paused.","Kampanye tidak sedang menunggu persetujuan.":"The campaign is not awaiting approval.","Kolom terlalu banyak atau isi sel terlalu panjang.":"Too many columns or excessive cell length.","Konfigurasi HTTP dapat disimpan dan divalidasi. Aktivasi transport nyata menunggu adapter serta pengujian vendor.":"HTTP configuration can be saved and validated. Real transport activation requires an adapter and vendor testing.","Lembar kerja kosong.":"The worksheet is empty.","Maksimal 100 kolom per baris.":"Up to 100 columns per row are supported.","Pembatalan pekerjaan yang telah masuk antrean belum tersedia.":"Cancellation of queued work is not available.","Pembuat tidak dapat menyetujui kampanyenya sendiri.":"Creators cannot approve their own campaigns.","Pengambilan sumber gagal atau melewati batas waktu.":"Source retrieval failed or timed out.","Pengambilan sumber terputus.":"Source retrieval was interrupted.","Peran Anda tidak sesuai dengan tingkat persetujuan saat ini.":"Your role does not match the current approval level.","Periode anggaran bertumpang tindih.":"Budget periods overlap.","Pilih definisi yang sudah dipublikasikan.":"Select a published definition.","Pilih satu template per kanal.":"Select one template per channel.","Pilih sumber, template, dan pusat biaya dari tim aktif Anda.":"Select a source, template, and cost centre from your active team.","Pilih waktu di masa depan.":"Choose a future time.","Pola pengulangan wajib diisi.":"A recurrence rule is required.","Rahasia koneksi belum tersedia pada server.":"The connection secret is not configured on the server.","Referensi rahasia harus menggunakan nama SOURCE_… pada server.":"Secret references must use a server-side SOURCE_… name.","Respons sumber melebihi 2 MB. Gunakan sumber yang dipaginasi.":"The source response exceeds 2 MB. Use a paginated source.","Selesaikan atau kembalikan persetujuan sebelum revisi.":"Complete or return the approval before revising.","Selesaikan eksekusi aktif atau batalkan eksekusi tertahan sebelum merevisi.":"Complete active executions or cancel held executions before revising.","Semua peran harus berasal dari perusahaan Anda dan memiliki izin persetujuan.":"All roles must belong to your company and have approval permission.","Sudah ada tarif dengan waktu berlaku yang sama atau lebih baru.":"A rate with the same or a newer effective time already exists.","Sumber data kosong.":"The data source is empty.","Sumber tidak mengembalikan JSON yang valid.":"The source did not return valid JSON.","Sumber, template, atau pusat biaya tidak tersedia.":"The source, template, or cost centre is unavailable.","Tarif historis tidak dapat ditulis ulang.":"Historical rates cannot be overwritten.","Tarif memuat kanal yang tidak didukung.":"The rate includes an unsupported channel.","Template tidak ditemukan.":"Template not found.","Tim/peran tidak valid.":"Invalid team or role.","Transport vendor nyata belum diaktifkan; gunakan simulator untuk portofolio lokal.":"Real vendor transport is not enabled; use the simulator for testing.","URL sumber wajib diisi.":"A source URL is required.","Ukuran total pesan melampaui kapasitas snapshot lokal. Bagi kampanye atau sesuaikan kapasitas setelah pengukuran.":"Total message size exceeds snapshot capacity. Split the campaign or adjust capacity after measuring.","Validasi konfigurasi sebelum publikasi.":"Validate configuration before publishing.","Versi atau tingkat persetujuan sudah berubah. Muat ulang dan tinjau kembali.":"The version or approval level changed. Reload and review again.","Waktu jadwal wajib diisi.":"A scheduled time is required.","Layanan belum siap. Silakan coba lagi.":"The service is not ready. Please try again.","Ukuran permintaan melebihi 16 MB.":"The request exceeds 16 MB."});
-Object.assign(indonesian,{"Isi pesan hasil penggabungan melampaui batas sumber daya lokal.":"Isi pesan hasil penggabungan melampaui batas sumber daya aplikasi.","Transport vendor nyata belum diaktifkan; gunakan simulator untuk portofolio lokal.":"Transport vendor nyata belum diaktifkan; gunakan simulator untuk pengujian.","Ukuran total pesan melampaui kapasitas snapshot lokal. Bagi kampanye atau sesuaikan kapasitas setelah pengukuran.":"Ukuran total pesan melampaui kapasitas snapshot aplikasi. Bagi kampanye atau sesuaikan kapasitas setelah pengukuran."});
+Object.assign(english, {
+  penyedia: "provider",
+  akun: "account",
+  tarif: "rate",
+  hentikan: "stop",
+  jeda: "pause",
+  lanjutkan: "resume",
+  "Bahasa diperbarui.": "Language updated.",
+});
+Object.assign(english, {
+  "Administrator perlu mengatur persetujuan.":
+    "An administrator needs to configure approvals.",
+  "Akun penyedia tidak aktif atau tidak mendukung kanal ini.":
+    "The provider account is inactive or does not support this channel.",
+  "Alamat lokal, privat, atau infrastruktur tidak diizinkan.":
+    "Local, private, or infrastructure addresses are not allowed.",
+  "Alamat sumber tidak dapat ditemukan.":
+    "The source address could not be resolved.",
+  "Alasan wajib diisi.": "A reason is required.",
+  "Anggaran tidak ditemukan.": "Budget not found.",
+  "Cursor tidak valid.": "Invalid pagination cursor.",
+  "Eksekusi ini tidak dapat dijadwalkan ulang.":
+    "This execution cannot be rescheduled.",
+  "Eksekusi menggunakan versi lama. Gunakan kampanye dengan versi yang telah disetujui.":
+    "This execution uses an older version. Use the approved campaign version.",
+  "Eksekusi tidak ditemukan.": "Execution not found.",
+  "Eksekusi tidak tertahan pemulihan atau kampanye belum aktif.":
+    "The execution is not on recovery hold, or the campaign is not active.",
+  "Gunakan HTTPS port standar tanpa kredensial di URL.":
+    "Use the standard HTTPS port without credentials in the URL.",
+  "Gunakan HTTPS tanpa kredensial di URL.":
+    "Use HTTPS without credentials in the URL.",
+  "Gunakan administrator lain untuk mengubah akses akun Anda.":
+    "Ask another administrator to change your account access.",
+  "Gunakan gambar PNG, JPEG, atau WebP yang valid (maksimal 8 megapiksel).":
+    "Use a valid PNG, JPEG, or WebP image (up to 8 megapixels).",
+  "Gunakan nilai, bukan formula, pada sumber data.":
+    "Use values rather than formulas in source data.",
+  "Hanya draf yang dapat diajukan.": "Only drafts can be submitted.",
+  "Hanya eksekusi tertahan anggaran yang dapat diperiksa ulang.":
+    "Only executions on budget hold can be checked again.",
+  "Hanya hasil simulasi yang belum terkonfirmasi dapat direkonsiliasi.":
+    "Only unconfirmed simulated outcomes can be reconciled.",
+  "Hanya kampanye aktif yang dapat dijeda.":
+    "Only active campaigns can be paused.",
+  "Isi pesan hasil penggabungan melampaui batas sumber daya lokal.":
+    "Rendered message content exceeds the application resource limit.",
+  "Jadwal telah lewat. Pilih jadwalkan ulang.":
+    "The scheduled time has passed. Choose reschedule.",
+  "Jalur data sumber tidak ditemukan.": "The source data path was not found.",
+  "Judul kolom harus unik dan tidak kosong.":
+    "Column headers must be unique and non-empty.",
+  "Kampanye harus aktif dan disetujui sebelum eksekusi.":
+    "The campaign must be active and approved before execution.",
+  "Kampanye tidak sedang dijeda.": "The campaign is not paused.",
+  "Kampanye tidak sedang menunggu persetujuan.":
+    "The campaign is not awaiting approval.",
+  "Kolom terlalu banyak atau isi sel terlalu panjang.":
+    "Too many columns or excessive cell length.",
+  "Konfigurasi HTTP dapat disimpan dan divalidasi. Aktivasi transport nyata menunggu adapter serta pengujian vendor.":
+    "HTTP configuration can be saved and validated. Real transport activation requires an adapter and vendor testing.",
+  "Lembar kerja kosong.": "The worksheet is empty.",
+  "Maksimal 100 kolom per baris.": "Up to 100 columns per row are supported.",
+  "Pembatalan pekerjaan yang telah masuk antrean belum tersedia.":
+    "Cancellation of queued work is not available.",
+  "Pembuat tidak dapat menyetujui kampanyenya sendiri.":
+    "Creators cannot approve their own campaigns.",
+  "Pengambilan sumber gagal atau melewati batas waktu.":
+    "Source retrieval failed or timed out.",
+  "Pengambilan sumber terputus.": "Source retrieval was interrupted.",
+  "Peran Anda tidak sesuai dengan tingkat persetujuan saat ini.":
+    "Your role does not match the current approval level.",
+  "Periode anggaran bertumpang tindih.": "Budget periods overlap.",
+  "Pilih definisi yang sudah dipublikasikan.": "Select a published definition.",
+  "Pilih satu template per kanal.": "Select one template per channel.",
+  "Pilih sumber, template, dan pusat biaya dari tim aktif Anda.":
+    "Select a source, template, and cost centre from your active team.",
+  "Pilih waktu di masa depan.": "Choose a future time.",
+  "Pola pengulangan wajib diisi.": "A recurrence rule is required.",
+  "Rahasia koneksi belum tersedia pada server.":
+    "The connection secret is not configured on the server.",
+  "Referensi rahasia harus menggunakan nama SOURCE_… pada server.":
+    "Secret references must use a server-side SOURCE_… name.",
+  "Respons sumber melebihi 2 MB. Gunakan sumber yang dipaginasi.":
+    "The source response exceeds 2 MB. Use a paginated source.",
+  "Selesaikan atau kembalikan persetujuan sebelum revisi.":
+    "Complete or return the approval before revising.",
+  "Selesaikan eksekusi aktif atau batalkan eksekusi tertahan sebelum merevisi.":
+    "Complete active executions or cancel held executions before revising.",
+  "Semua peran harus berasal dari perusahaan Anda dan memiliki izin persetujuan.":
+    "All roles must belong to your company and have approval permission.",
+  "Sudah ada tarif dengan waktu berlaku yang sama atau lebih baru.":
+    "A rate with the same or a newer effective time already exists.",
+  "Sumber data kosong.": "The data source is empty.",
+  "Sumber tidak mengembalikan JSON yang valid.":
+    "The source did not return valid JSON.",
+  "Sumber, template, atau pusat biaya tidak tersedia.":
+    "The source, template, or cost centre is unavailable.",
+  "Tarif historis tidak dapat ditulis ulang.":
+    "Historical rates cannot be overwritten.",
+  "Tarif memuat kanal yang tidak didukung.":
+    "The rate includes an unsupported channel.",
+  "Template tidak ditemukan.": "Template not found.",
+  "Tim/peran tidak valid.": "Invalid team or role.",
+  "Transport vendor nyata belum diaktifkan; gunakan simulator untuk portofolio lokal.":
+    "Real vendor transport is not enabled; use the simulator for testing.",
+  "URL sumber wajib diisi.": "A source URL is required.",
+  "Ukuran total pesan melampaui kapasitas snapshot lokal. Bagi kampanye atau sesuaikan kapasitas setelah pengukuran.":
+    "Total message size exceeds snapshot capacity. Split the campaign or adjust capacity after measuring.",
+  "Validasi konfigurasi sebelum publikasi.":
+    "Validate configuration before publishing.",
+  "Versi atau tingkat persetujuan sudah berubah. Muat ulang dan tinjau kembali.":
+    "The version or approval level changed. Reload and review again.",
+  "Waktu jadwal wajib diisi.": "A scheduled time is required.",
+  "Layanan belum siap. Silakan coba lagi.":
+    "The service is not ready. Please try again.",
+  "Ukuran permintaan melebihi 16 MB.": "The request exceeds 16 MB.",
+});
+Object.assign(indonesian, {
+  "Isi pesan hasil penggabungan melampaui batas sumber daya lokal.":
+    "Isi pesan hasil penggabungan melampaui batas sumber daya aplikasi.",
+  "Transport vendor nyata belum diaktifkan; gunakan simulator untuk portofolio lokal.":
+    "Transport vendor nyata belum diaktifkan; gunakan simulator untuk pengujian.",
+  "Ukuran total pesan melampaui kapasitas snapshot lokal. Bagi kampanye atau sesuaikan kapasitas setelah pengukuran.":
+    "Ukuran total pesan melampaui kapasitas snapshot aplikasi. Bagi kampanye atau sesuaikan kapasitas setelah pengukuran.",
+});
+Object.assign(english, {
+  "Koneksi vendor": "Vendor connection",
+  "Semua koneksi": "All connections",
+  "Tanggal mulai": "Start date",
+  "Tanggal akhir": "End date",
+  "Terapkan filter": "Apply filters",
+  "Performa koneksi vendor": "Vendor connection performance",
+  "Maksimal 25 koneksi dan kanal dengan kegagalan terbanyak. Hasil belum terkonfirmasi dipisahkan.":
+    "Up to 25 connections and channels with the most failures. Unconfirmed outcomes are shown separately.",
+  Koneksi: "Connection",
+  Permintaan: "Requests",
+  "Rasio gagal": "Failure rate",
+  "kelompok biaya": "cost groups",
+  "Rentang tanggal tidak valid atau melebihi 366 hari.":
+    "Invalid date range or longer than 366 days.",
+  Unassigned: "Unassigned",
+});
+Object.assign(indonesian, {
+  "Test provider": "Penyedia uji",
+  Unassigned: "Belum dialokasikan",
+});
+Object.assign(english, {
+  Pemeliharaan: "Maintenance",
+  "Riwayat perubahan": "Change history",
+  "Tentang aplikasi": "About",
+  "Ubah lebar navigasi": "Resize navigation",
+  "Akses & audit": "Access & audit",
+  "Peristiwa bisnis dan perubahan data, sesuai hak akses perusahaan Anda.":
+    "Business events and data changes within your company's permissions.",
+  "Muat terbaru": "Load latest",
+  "Dari tanggal": "From date",
+  "Sampai tanggal": "To date",
+  "Menu / use case": "Menu / use case",
+  "Jenis catatan": "Record type",
+  "Semua catatan": "All records",
+  "Peristiwa bisnis": "Business events",
+  "Perubahan data": "Data changes",
+  "Aksi spesifik": "Exact action",
+  "Pengguna, aksi, atau ID": "User, action, or ID",
+  "Baris per halaman": "Rows per page",
+  "Baris pengguna per halaman": "User rows per page",
+  catatan: "records",
+  "Perubahan / korelasi": "Changes / correlation",
+  "Lihat perubahan": "View changes",
+  "Tidak ada catatan untuk filter ini.": "No records match these filters.",
+  "Semua aktivitas": "All activities",
+  "Login dan akses": "Login and access",
+  "Pengiriman dan eksekusi": "Delivery and execution",
+  "Kampanye dan persetujuan": "Campaigns and approvals",
+  "Pengguna dan peran": "Users and roles",
+  "Vendor dan koneksi": "Vendors and connections",
+  "Anggaran dan biaya": "Budgets and costs",
+  "Rilis dan pemeliharaan": "Releases and maintenance",
+  "Pemeliharaan perusahaan": "Company maintenance",
+  "Pengguna biasa tidak dapat login atau menggunakan layanan selama pemeliharaan. Admin perusahaan tetap dapat menonaktifkan mode ini. Eksekusi baru ditahan; pengiriman yang sudah berlangsung dapat selesai.":
+    "Standard users cannot sign in or use services during maintenance. Company administrators retain access to turn it off. New executions are held; work already in progress may finish.",
+  "Pemeliharaan aktif": "Maintenance active",
+  "Layanan aktif": "Service active",
+  "Pengaturan pemeliharaan disimpan.": "Maintenance settings saved.",
+  "Informasi pemeliharaan": "Maintenance information",
+  "Alasan perubahan": "Reason for change",
+  "Saya mengonfirmasi layanan dapat dibuka kembali.":
+    "I confirm the service can be reopened.",
+  "Saya memahami pengguna perusahaan ini akan dibatasi selama pemeliharaan.":
+    "I understand that this company's users will be restricted during maintenance.",
+  "Nonaktifkan pemeliharaan": "Turn off maintenance",
+  "Aktifkan pemeliharaan": "Turn on maintenance",
+  "Memuat pengaturan…": "Loading settings…",
+  "Perusahaan sedang dalam pemeliharaan. Hubungi administrator perusahaan.":
+    "This company is undergoing maintenance. Contact your company administrator.",
+  "Perusahaan sedang dalam pemeliharaan.":
+    "This company is undergoing maintenance.",
+  "Perbaikan issue": "Issue fix",
+  Peningkatan: "Enhancement",
+  "Fitur baru": "New feature",
+  Keamanan: "Security",
+  Lainnya: "Other",
+  "Riwayat perubahan aplikasi": "Application change history",
+  "Catatan rilis dan deployment yang didaftarkan admin perusahaan. Pendaftaran ini tidak menjalankan deployment.":
+    "Release and deployment records registered by company administrators. Registration does not deploy the application.",
+  "Daftarkan perubahan": "Register changes",
+  "Cari versi atau judul": "Search version or title",
+  "Perubahan terdaftar.": "Changes registered.",
+  "Registrasi perubahan": "Change registration",
+  "Versi rilis": "Release version",
+  "Judul perubahan": "Change title",
+  Lingkungan: "Environment",
+  "Waktu deployment": "Deployment time",
+  Diterapkan: "Deployed",
+  "Referensi tiket / commit": "Ticket / commit reference",
+  "Mengoreksi rilis sebelumnya": "Corrects a previous release",
+  "Tidak ada": "None",
+  "Rincian perubahan": "Change details",
+  Perubahan: "Change",
+  Deskripsi: "Description",
+  Tiket: "Ticket",
+  "Hapus baris": "Remove row",
+  "Tambah rincian": "Add details",
+  "Simpan perubahan": "Save changes",
+  "Rincian yang sudah terdaftar dipertahankan. Buat catatan koreksi untuk memperbaiki informasi sebelumnya.":
+    "Registered details are retained. Create a correction record to amend earlier information.",
+  "Didaftarkan oleh": "Registered by",
+  Referensi: "Reference",
+  "Koreksi untuk rilis": "Correction for release",
+  "Riwayat status": "Status history",
+  Didaftarkan: "Registered",
+  "Catat sebagai diterapkan": "Record as deployed",
+  "Catat rollback": "Record rollback",
+  "Belum ada riwayat perubahan.": "No change history yet.",
+  "Perbarui status rilis": "Update release status",
+  "Simpan status": "Save status",
+  "Status telah berubah. Muat ulang sebelum memperbarui.":
+    "The status changed. Reload before updating.",
+  "Transisi status tidak diizinkan. Daftarkan rilis baru untuk perubahan berikutnya.":
+    "This status transition is not allowed. Register a new release for further changes.",
+  "Platform komunikasi dan kendali operasional perusahaan.":
+    "Messaging and operational controls for companies.",
+  "Identitas karya": "Project provenance",
+  "Kredit dependensi dan inspirasi tersedia pada dokumentasi proyek.":
+    "Dependency and inspiration credits are available in the project documentation.",
+  "Corporate ID": "Corporate ID",
+  "ID pegawai": "Employee ID",
+  "ID pegawai / pekerjaan": "Employee ID / work details",
+  Departemen: "Department",
+  Jabatan: "Job title",
+  "Telepon kerja": "Work phone",
+  "Cari pengguna": "Search users",
+  "Nama, email, atau ID pegawai": "Name, email, or employee ID",
+  pengguna: "users",
+  "Edit informasi": "Edit information",
+  "Edit informasi pengguna": "Edit user information",
+  "Informasi pengguna diperbarui.": "User information updated.",
+  "Simpan informasi": "Save information",
+  "Edit peran": "Edit role",
+  "Peran diperbarui.": "Role updated.",
+  "Level peran": "Role level",
+  "Level peran baru": "New role level",
+  "Level adalah informasi organisasi. Hak akses dan tingkat persetujuan tetap ditentukan melalui izin dan kebijakan persetujuan.":
+    "Level is organizational information. Access and approval stages are explicitly determined by permissions and approval policy.",
+  "Otomatis jika dikosongkan": "Generated if left blank",
+  "Gunakan administrator lain untuk mengubah email akun Anda.":
+    "Ask another administrator to change your account email.",
+  "Gunakan administrator lain untuk mengubah peran Anda.":
+    "Ask another administrator to change your role.",
+  "Anda tidak memiliki izin untuk menu ini.":
+    "You do not have permission to access this menu.",
+  "Hanya admin perusahaan yang dapat mengakses menu ini.":
+    "Only company administrators can access this menu.",
+  "Masuk ke One UMS": "Sign in to One UMS",
+  "Gunakan email kerja yang terdaftar untuk mengakses perusahaan Anda.":
+    "Use your registered work email to access your company.",
+  "Sembunyikan kata sandi": "Hide password",
+  "Tampilkan kata sandi": "Show password",
+  "Belum memiliki akses? Hubungi admin perusahaan Anda.":
+    "Need access? Contact your company administrator.",
+  "Akun demonstrasi": "Demonstration accounts",
+  "Akses perusahaan": "Company access",
+  "Lihat kampanye": "View campaigns",
+  "Buat kampanye": "Create campaign",
+  "Setujui kampanye": "Approve campaigns",
+  "Kelola eksekusi": "Manage executions",
+  "Lihat isi pesan sensitif": "View sensitive message content",
+  "Lihat anggaran dan biaya": "View budgets and costs",
+  "Kelola anggaran": "Manage budgets",
+  "Kelola sumber data": "Manage data sources",
+  "Kelola template": "Manage templates",
+  "Lihat jejak audit": "View audit trail",
+  "Administrasi perusahaan": "Company administration",
+});
+Object.assign(indonesian, {
+  Maintenance: "Pemeliharaan",
+  "Change history": "Riwayat perubahan",
+  About: "Tentang aplikasi",
+  "Resize navigation": "Ubah lebar navigasi",
+  "Access & audit": "Akses & audit",
+  "Business events and data changes within your company's permissions.":
+    "Peristiwa bisnis dan perubahan data, sesuai hak akses perusahaan Anda.",
+  "Load latest": "Muat terbaru",
+  "From date": "Dari tanggal",
+  "To date": "Sampai tanggal",
+  "Menu / use case": "Menu / use case",
+  "Record type": "Jenis catatan",
+  "All records": "Semua catatan",
+  "Business events": "Peristiwa bisnis",
+  "Data changes": "Perubahan data",
+  "Exact action": "Aksi spesifik",
+  "User, action, or ID": "Pengguna, aksi, atau ID",
+  "Rows per page": "Baris per halaman",
+  "User rows per page": "Baris pengguna per halaman",
+  records: "catatan",
+  "Changes / correlation": "Perubahan / korelasi",
+  "View changes": "Lihat perubahan",
+  "No records match these filters.": "Tidak ada catatan untuk filter ini.",
+  "All activities": "Semua aktivitas",
+  "Login and access": "Login dan akses",
+  "Delivery and execution": "Pengiriman dan eksekusi",
+  "Campaigns and approvals": "Kampanye dan persetujuan",
+  "Users and roles": "Pengguna dan peran",
+  "Vendors and connections": "Vendor dan koneksi",
+  "Budgets and costs": "Anggaran dan biaya",
+  "Releases and maintenance": "Rilis dan pemeliharaan",
+  "Company maintenance": "Pemeliharaan perusahaan",
+  "Standard users cannot sign in or use services during maintenance. Company administrators retain access to turn it off. New executions are held; work already in progress may finish.":
+    "Pengguna biasa tidak dapat login atau menggunakan layanan selama pemeliharaan. Admin perusahaan tetap dapat menonaktifkan mode ini. Eksekusi baru ditahan; pengiriman yang sudah berlangsung dapat selesai.",
+  "Maintenance active": "Pemeliharaan aktif",
+  "Service active": "Layanan aktif",
+  "Maintenance settings saved.": "Pengaturan pemeliharaan disimpan.",
+  "Maintenance information": "Informasi pemeliharaan",
+  "Reason for change": "Alasan perubahan",
+  "I confirm the service can be reopened.":
+    "Saya mengonfirmasi layanan dapat dibuka kembali.",
+  "I understand that this company's users will be restricted during maintenance.":
+    "Saya memahami pengguna perusahaan ini akan dibatasi selama pemeliharaan.",
+  "Turn off maintenance": "Nonaktifkan pemeliharaan",
+  "Turn on maintenance": "Aktifkan pemeliharaan",
+  "Loading settings…": "Memuat pengaturan…",
+  "This company is undergoing maintenance. Contact your company administrator.":
+    "Perusahaan sedang dalam pemeliharaan. Hubungi administrator perusahaan.",
+  "This company is undergoing maintenance.":
+    "Perusahaan sedang dalam pemeliharaan.",
+  "Issue fix": "Perbaikan issue",
+  Enhancement: "Peningkatan",
+  "New feature": "Fitur baru",
+  Security: "Keamanan",
+  Other: "Lainnya",
+  "Application change history": "Riwayat perubahan aplikasi",
+  "Release and deployment records registered by company administrators. Registration does not deploy the application.":
+    "Catatan rilis dan deployment yang didaftarkan admin perusahaan. Pendaftaran ini tidak menjalankan deployment.",
+  "Register changes": "Daftarkan perubahan",
+  "Search version or title": "Cari versi atau judul",
+  "Changes registered.": "Perubahan terdaftar.",
+  "Change registration": "Registrasi perubahan",
+  "Release version": "Versi rilis",
+  "Change title": "Judul perubahan",
+  Environment: "Lingkungan",
+  "Deployment time": "Waktu deployment",
+  Deployed: "Diterapkan",
+  "Ticket / commit reference": "Referensi tiket / commit",
+  "Corrects a previous release": "Mengoreksi rilis sebelumnya",
+  None: "Tidak ada",
+  "Change details": "Rincian perubahan",
+  Change: "Perubahan",
+  Description: "Deskripsi",
+  Ticket: "Tiket",
+  "Remove row": "Hapus baris",
+  "Add details": "Tambah rincian",
+  "Save changes": "Simpan perubahan",
+  "Registered details are retained. Create a correction record to amend earlier information.":
+    "Rincian yang sudah terdaftar dipertahankan. Buat catatan koreksi untuk memperbaiki informasi sebelumnya.",
+  "Registered by": "Didaftarkan oleh",
+  Reference: "Referensi",
+  "Correction for release": "Koreksi untuk rilis",
+  "Status history": "Riwayat status",
+  Registered: "Didaftarkan",
+  "Record as deployed": "Catat sebagai diterapkan",
+  "Record rollback": "Catat rollback",
+  "No change history yet.": "Belum ada riwayat perubahan.",
+  "Update release status": "Perbarui status rilis",
+  "Save status": "Simpan status",
+  "The status changed. Reload before updating.":
+    "Status telah berubah. Muat ulang sebelum memperbarui.",
+  "This status transition is not allowed. Register a new release for further changes.":
+    "Transisi status tidak diizinkan. Daftarkan rilis baru untuk perubahan berikutnya.",
+  "Messaging and operational controls for companies.":
+    "Platform komunikasi dan kendali operasional perusahaan.",
+  "Project provenance": "Identitas karya",
+  "Dependency and inspiration credits are available in the project documentation.":
+    "Kredit dependensi dan inspirasi tersedia pada dokumentasi proyek.",
+  "Corporate ID": "Corporate ID",
+  "Employee ID": "ID pegawai",
+  "Employee ID / work details": "ID pegawai / pekerjaan",
+  Department: "Departemen",
+  "Job title": "Jabatan",
+  "Work phone": "Telepon kerja",
+  "Search users": "Cari pengguna",
+  "Name, email, or employee ID": "Nama, email, atau ID pegawai",
+  users: "pengguna",
+  "Edit information": "Edit informasi",
+  "Edit user information": "Edit informasi pengguna",
+  "User information updated.": "Informasi pengguna diperbarui.",
+  "Save information": "Simpan informasi",
+  "Edit role": "Edit peran",
+  "Role updated.": "Peran diperbarui.",
+  "Role level": "Level peran",
+  "New role level": "Level peran baru",
+  "Level is organizational information. Access and approval stages are explicitly determined by permissions and approval policy.":
+    "Level adalah informasi organisasi. Hak akses dan tingkat persetujuan tetap ditentukan melalui izin dan kebijakan persetujuan.",
+  "Generated if left blank": "Otomatis jika dikosongkan",
+  "Ask another administrator to change your account email.":
+    "Gunakan administrator lain untuk mengubah email akun Anda.",
+  "Ask another administrator to change your role.":
+    "Gunakan administrator lain untuk mengubah peran Anda.",
+  "You do not have permission to access this menu.":
+    "Anda tidak memiliki izin untuk menu ini.",
+  "Only company administrators can access this menu.":
+    "Hanya admin perusahaan yang dapat mengakses menu ini.",
+  "Sign in to One UMS": "Masuk ke One UMS",
+  "Use your registered work email to access your company.":
+    "Gunakan email kerja yang terdaftar untuk mengakses perusahaan Anda.",
+  "Hide password": "Sembunyikan kata sandi",
+  "Show password": "Tampilkan kata sandi",
+  "Need access? Contact your company administrator.":
+    "Belum memiliki akses? Hubungi admin perusahaan Anda.",
+  "Demonstration accounts": "Akun demonstrasi",
+  "Company access": "Akses perusahaan",
+  "View campaigns": "Lihat kampanye",
+  "Create campaign": "Buat kampanye",
+  "Approve campaigns": "Setujui kampanye",
+  "Manage executions": "Kelola eksekusi",
+  "View sensitive message content": "Lihat isi pesan sensitif",
+  "View budgets and costs": "Lihat anggaran dan biaya",
+  "Manage budgets": "Kelola anggaran",
+  "Manage data sources": "Kelola sumber data",
+  "Manage templates": "Kelola template",
+  "View audit trail": "Lihat jejak audit",
+  "Company administration": "Administrasi perusahaan",
+});
+Object.assign(english, {
+  production: "Production",
+  staging: "Staging",
+  development: "Development",
+});
+Object.assign(indonesian, {
+  production: "Produksi",
+  staging: "Staging",
+  development: "Pengembangan",
+});
+Object.assign(english, { Tingkat: "Level" });
+Object.assign(indonesian, { Level: "Tingkat" });
+Object.assign(english, { "Pengiriman dan eksekusi": "Delivery and execution" });
 const indonesianTemplates = Object.entries(indonesian).filter(([key]) =>
   /\{\d+\}/.test(key),
 );

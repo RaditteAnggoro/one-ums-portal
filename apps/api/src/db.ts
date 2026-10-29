@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { requestContext } from "./request-context.js";
 import { Pool, types, type PoolClient } from "pg";
 // Calendar dates are not instants; keep budget boundaries independent of the server timezone.
 types.setTypeParser(1082, (value) => value);
@@ -16,6 +17,16 @@ export async function transaction<T>(
   const db = await pool.connect();
   try {
     await db.query("BEGIN");
+    const context = requestContext.getStore();
+    await db.query(
+      "SELECT set_config('app.actor_id',$1,true),set_config('app.team_id',$2,true),set_config('app.ip',$3,true),set_config('app.correlation_id',$4,true)",
+      [
+        context?.actorId ?? "",
+        context?.teamId ?? "",
+        context?.ip ?? "service",
+        context?.correlationId ?? "",
+      ],
+    );
     const result = await fn(db);
     await db.query("COMMIT");
     return result;

@@ -1,4 +1,11 @@
 import "reflect-metadata";
+import { randomUUID } from "node:crypto";
+import { requestContext } from "./request-context.js";
+import {
+  GovernanceController,
+  AuditController,
+  maintenanceError,
+} from "./governance.js";
 import { validateServerEnvironment } from "./config.js";
 import {
   Body,
@@ -128,16 +135,42 @@ class ApiController {
         count: (attempt?.count ?? 0) + 1,
         until: attempt?.until ?? now + 900000,
       });
+      if (user)
+        await pool.query(
+          "INSERT INTO audit(company_id,team_id,action,resource_type,resource_id,detail,ip,correlation_id) VALUES($1,$2,'auth.login_failed','user',$3,'{}',$4,$5)",
+          [
+            user.company_id,
+            user.team_id,
+            user.id,
+            req.ip,
+            requestContext.getStore()?.correlationId ?? randomUUID(),
+          ],
+        );
       throw new UnauthorizedException("Email atau kata sandi tidak sesuai.");
     }
     loginAttempts.delete(key);
     const device = pushDevice(req, res);
     if (device) await deactivateDevice(device);
     const token = sessionToken();
-    await pool.query(
-      "INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval '8 hours')",
-      [tokenHash(token), user.id],
-    );
+    await transaction(async (db) => {
+      const state = (
+        await db.query(
+          "SELECT c.maintenance_enabled,c.maintenance_message,r.permissions,u.active FROM users u JOIN companies c ON c.id=u.company_id JOIN roles r ON r.id=u.role_id AND r.company_id=u.company_id WHERE u.id=$1 FOR SHARE OF c,u,r",
+          [user.id],
+        )
+      ).rows[0];
+      if (!state?.active)
+        throw new UnauthorizedException("Email atau kata sandi tidak sesuai.");
+      if (
+        state.maintenance_enabled &&
+        !state.permissions.includes("admin:write")
+      )
+        throw maintenanceError(state.maintenance_message);
+      await db.query(
+        "INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval '8 hours')",
+        [tokenHash(token), user.id],
+      );
+    });
     res.cookie("session", token, {
       httpOnly: true,
       sameSite: "strict",
@@ -326,7 +359,10 @@ class ApiController {
         : [],
       stats: campaignRead ? stats : [],
       mode: "simulation",
-      config: { environment: process.env.UI_ENVIRONMENT_LABEL ?? "" },
+      config: {
+        environment: process.env.UI_ENVIRONMENT_LABEL ?? "",
+        demoAccounts: process.env.ENABLE_DEMO_ACCOUNTS === "true",
+      },
     };
   }
   @Post("campaigns") async create(@Req() req: Request, @Body() body: unknown) {
@@ -822,18 +858,6 @@ class ApiController {
       return b;
     });
   }
-  @Get("audit") async audits(
-    @Req() req: Request,
-    @Query("search") search = "",
-  ) {
-    const a = await actorFor(req, "audit:read");
-    return (
-      await pool.query(
-        `SELECT au.*,u.name AS actor_name FROM audit au LEFT JOIN users u ON u.id=au.actor_id WHERE ${scope(a, "au")} AND (au.action ILIKE $4 OR au.resource_id ILIKE $4) ORDER BY au.created_at DESC LIMIT 200`,
-        [...scopeValues(a), `%${search.slice(0, 100)}%`],
-      )
-    ).rows;
-  }
   @Put("profile") async profile(@Req() req: Request, @Body() input: unknown) {
     const a = await actorFor(req);
     const v = z
@@ -859,18 +883,26 @@ class ApiController {
   ) {
     const a = await actorFor(req);
     const v = dashboardSchema.parse(input);
-    await pool.query(
-      "UPDATE users SET profile=jsonb_set(profile,'{dashboard}', $2::jsonb) WHERE id=$1",
-      [a.id, JSON.stringify(v)],
-    );
+    await transaction(async (db) => {
+      await db.query(
+        "UPDATE users SET profile=jsonb_set(profile,'{dashboard}', $2::jsonb) WHERE id=$1",
+        [a.id, JSON.stringify(v)],
+      );
+      await audit(db, a, "dashboard.personal_updated", "user", a.id, {
+        layout: v,
+      });
+    });
     return { ok: true };
   }
   @Post("dashboard/reset") async resetDashboard(@Req() req: Request) {
     const a = await actorFor(req);
-    await pool.query(
-      "UPDATE users SET profile=profile-'dashboard' WHERE id=$1",
-      [a.id],
-    );
+    await transaction(async (db) => {
+      await db.query(
+        "UPDATE users SET profile=profile-'dashboard' WHERE id=$1",
+        [a.id],
+      );
+      await audit(db, a, "dashboard.personal_reset", "user", a.id);
+    });
     return { ok: true };
   }
   @Post("notifications/read-all") async readAll(@Req() req: Request) {
@@ -890,11 +922,20 @@ class ApiController {
   ) {
     const a = await actorFor(req, "campaigns:read");
     z.uuid().parse(id);
-    const changed = await pool.query(
-      `UPDATE notifications SET read_by=CASE WHEN read_by ? $4::text THEN read_by ELSE read_by||jsonb_build_array($4::text) END WHERE ${scope(a)} AND id=$5 RETURNING id`,
-      [...scopeValues(a), a.id, id],
-    );
-    if (!changed.rowCount) throw new NotFoundException();
+    await transaction(async (db) => {
+      const visible = await db.query(
+        `SELECT id,read_by FROM notifications WHERE ${scope(a)} AND id=$4 AND ($5::boolean OR category<>'budget') FOR UPDATE`,
+        [...scopeValues(a), id, a.permissions.includes("budgets:read")],
+      );
+      if (!visible.rowCount) throw new NotFoundException();
+      if (!visible.rows[0].read_by.includes(a.id)) {
+        await db.query(
+          "UPDATE notifications SET read_by=read_by||jsonb_build_array($2::text) WHERE id=$1",
+          [id, a.id],
+        );
+        await audit(db, a, "notification.read", "notification", id);
+      }
+    });
     return { ok: true };
   }
   @Put("admin/approval-policy") async policy(
@@ -956,6 +997,8 @@ class ApiController {
     LedgerController,
     OperationsController,
     CompaniesController,
+    GovernanceController,
+    AuditController,
     PushController,
   ],
 })
@@ -968,6 +1011,9 @@ export async function createApp() {
   const trustedHops = Number(process.env.TRUST_PROXY_HOPS ?? 0);
   if (Number.isInteger(trustedHops) && trustedHops > 0 && trustedHops <= 3)
     app.getHttpAdapter().getInstance().set("trust proxy", trustedHops);
+  app.use((req: Request, _res: Response, next: () => void) =>
+    requestContext.run({ ip: req.ip, correlationId: randomUUID() }, next),
+  );
   app.use(helmet());
   app.use(cookieParser());
   app.use((req: Request, res: Response, next: () => void) => {
@@ -1007,14 +1053,33 @@ export async function createApp() {
           name: (error as Error)?.name,
           code: databaseCode,
         });
+      const exceptionResponse =
+        error instanceof HttpException ? error.getResponse() : null;
+      const exceptionMessage =
+        typeof exceptionResponse === "object" &&
+        exceptionResponse &&
+        "message" in exceptionResponse
+          ? (exceptionResponse as any).message
+          : (error as Error)?.message;
       res.status(code).json({
+        ...(typeof exceptionResponse === "object" &&
+        exceptionResponse &&
+        "code" in exceptionResponse &&
+        (exceptionResponse as any).code === "COMPANY_MAINTENANCE"
+          ? {
+              code: "COMPANY_MAINTENANCE",
+              information: String(
+                (exceptionResponse as any).information ?? "",
+              ).slice(0, 500),
+            }
+          : {}),
         message:
           error instanceof ZodError
             ? error.issues
                 .map((e) => `${e.path.join(".")}: ${e.message}`)
                 .join("; ")
             : error instanceof HttpException
-              ? error.message
+              ? exceptionMessage
               : code === 409
                 ? "Data sudah ada atau periode bertumpang tindih."
                 : code === 400

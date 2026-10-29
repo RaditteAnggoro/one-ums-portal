@@ -1,6 +1,10 @@
 "use client";
+import {
+  statusLabel,
+  messageStatusCodes,
+} from "../../../../packages/domain/src/status";
 import { Select } from "./select";
-import { t as tr, localeTag } from "./i18n";
+import { t as tr, localeTag, useLanguage } from "./i18n";
 import { useEffect, useState } from "react";
 import {
   ArrowDownRight,
@@ -74,10 +78,11 @@ function Channel({ value }: { value: string }) {
   );
 }
 export function StatusBadge({ status }: { status: string }) {
+  const { locale } = useLanguage();
   return (
     <span className={`badge ${status.toLowerCase()}`}>
       <span className="badge-dot" />
-      {tr(statusNames[status] ?? status)}
+      {statusLabel(status, locale, "message")}
     </span>
   );
 }
@@ -428,6 +433,57 @@ function FailureTable({
     </div>
   );
 }
+function ReportFilters({
+  request,
+  value,
+  change,
+}: {
+  request: Api;
+  value: Record<string, string>;
+  change: (value: Record<string, string>) => void;
+}) {
+  const { data } = useRemote(request, "operations/filters");
+  return (
+    <form
+      className="report-filters"
+      onSubmit={(e) => {
+        e.preventDefault();
+        change(
+          Object.fromEntries(new FormData(e.currentTarget)) as Record<
+            string,
+            string
+          >,
+        );
+      }}
+    >
+      <label>
+        {tr("Koneksi vendor")}
+        <Select name="provider" defaultValue={value.provider ?? ""}>
+          <option value="">{tr("Semua koneksi")}</option>
+          {data?.providers.map((p: Row) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </Select>
+      </label>
+      <label>
+        {tr("Tanggal mulai")}
+        <input type="date" name="from" defaultValue={value.from ?? ""} />
+      </label>
+      <label>
+        {tr("Tanggal akhir")}
+        <input type="date" name="to" defaultValue={value.to ?? ""} />
+      </label>
+      <button className="secondary">{tr("Terapkan filter")}</button>
+    </form>
+  );
+}
+function reportQuery(value: Record<string, string>) {
+  return new URLSearchParams(
+    Object.entries(value).filter(([, v]) => v),
+  ).toString();
+}
 export function OperationsDashboard({
   request,
   days,
@@ -443,9 +499,10 @@ export function OperationsDashboard({
   navigate: (key: string, query?: string) => void;
   open: (id: string) => void;
 }) {
+  const [report, setReport] = useState<Record<string, string>>({});
   const { data, error, loading, reload } = useRemote(
     request,
-    `operations/summary?days=${days}&channel=${channel}`,
+    `operations/summary?days=${days}&channel=${channel}&${reportQuery(report)}`,
   );
   if (!data)
     return <State loading={loading} error={tr(error)} retry={reload} />;
@@ -453,6 +510,65 @@ export function OperationsDashboard({
     p = data.previous;
   return (
     <div className="operations-dashboard">
+      <ReportFilters request={request} value={report} change={setReport} />
+      <section className="panel vendor-console">
+        <div className="panel-heading">
+          <h3>{tr("Performa koneksi vendor")}</h3>
+          <p>
+            {tr(
+              "Maksimal 25 koneksi dan kanal dengan kegagalan terbanyak. Hasil belum terkonfirmasi dipisahkan.",
+            )}
+          </p>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                {[
+                  "Vendor",
+                  "Koneksi",
+                  "Kanal",
+                  "Permintaan",
+                  "Tersampaikan",
+                  "Gagal",
+                  "Belum terkonfirmasi",
+                  "Rasio gagal",
+                ].map((label) => (
+                  <th key={label}>{tr(label)}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.vendors?.map((v: Row, i: number) => (
+                <tr key={i}>
+                  <td>{v.vendor}</td>
+                  <td>{v.connection}</td>
+                  <td>
+                    <Channel value={v.channel} />
+                  </td>
+                  <td>{number(v.total)}</td>
+                  <td>{number(v.delivered)}</td>
+                  <td>
+                    <button
+                      className="text-btn"
+                      onClick={() =>
+                        navigate(
+                          "messages",
+                          `days=${days}&status=FAILED&channel=${v.channel}&${reportQuery({ ...report, ...(v.provider_id ? { provider: v.provider_id } : {}) })}`,
+                        )
+                      }
+                    >
+                      {number(v.failed)}
+                    </button>
+                  </td>
+                  <td>{number(v.unknown)}</td>
+                  <td>{v.failure_rate}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
       <div className="observation-bar">
         <span>
           <span className="status-dot" />
@@ -700,6 +816,7 @@ export function MessageExplorer({
   canCosts: boolean;
   mode?: string;
 }) {
+  const { locale } = useLanguage();
   const { filters, change, ready } = useExplorerFilters(mode);
   const [draft, setDraft] = useState(""),
     [cursors, setCursors] = useState<string[]>([]),
@@ -747,9 +864,9 @@ export function MessageExplorer({
             onChange={(e) => change({ status: e.target.value })}
           >
             <option value="all">{tr("Semua status")}</option>
-            {Object.entries(statusNames).map(([key, value]) => (
+            {messageStatusCodes.map((key) => (
               <option key={key} value={key}>
-                {value}
+                {statusLabel(key, locale, "message")}
               </option>
             ))}
           </Select>
@@ -1324,19 +1441,26 @@ export function VendorUsage({
   request: Api;
   navigate: (key: string) => void;
 }) {
+  const [report, setReport] = useState<Record<string, string>>({}),
+    [page, setPage] = useState(1);
   const [days, setDays] = useState("30");
   const { data, error, loading, reload } = useRemote(
     request,
-    `operations/usage?days=${days}`,
+    `operations/usage?days=${days}&page=${page}&${reportQuery(report)}`,
   );
   if (!data)
     return <State loading={loading} error={tr(error)} retry={reload} />;
-  const total = (key: string) =>
-    data.items
-      .reduce((n: Decimal, r: Row) => n.add(r[key]), new Decimal(0))
-      .toFixed(4);
+  const total = (key: string) => data.totals[key] ?? "0";
   return (
     <>
+      <ReportFilters
+        request={request}
+        value={report}
+        change={(v) => {
+          setReport(v);
+          setPage(1);
+        }}
+      />
       <div className="finance-toolbar">
         <span className="neutral-chip">
           {tr("IDR \u00B7 internal simulation")}
@@ -1344,7 +1468,10 @@ export function VendorUsage({
         <Select
           aria-label={tr("Periode biaya")}
           value={days}
-          onChange={(e) => setDays(e.target.value)}
+          onChange={(e) => {
+            setDays(e.target.value);
+            setPage(1);
+          }}
         >
           <option value="7">{tr("7 hari")}</option>
           <option value="30">{tr("30 hari")}</option>
@@ -1359,9 +1486,7 @@ export function VendorUsage({
       <div className="metrics-row finance-metrics">
         <Metric
           label={tr("Logical messages")}
-          value={number(
-            data.items.reduce((n: number, r: Row) => n + r.messages, 0),
-          )}
+          value={number(Number(data.totals.messages))}
           icon={MessagesSquare}
           note={tr("Terpisah dari billable units")}
         />
@@ -1400,7 +1525,9 @@ export function VendorUsage({
             <table>
               <thead>
                 <tr>
+                  <th>{tr("Pusat biaya")}</th>
                   <th>{tr("Vendor")}</th>
+                  <th>{tr("Koneksi")}</th>
                   <th>{tr("Kanal")}</th>
                   <th>{tr("Tim")}</th>
                   <th>{tr("Messages")}</th>
@@ -1413,6 +1540,8 @@ export function VendorUsage({
               <tbody>
                 {data.items.map((r: Row, i: number) => (
                   <tr key={i}>
+                    <td>{r.cost_centre}</td>
+                    <td>{r.vendor}</td>
                     <td>{r.provider}</td>
                     <td>
                       <Channel value={r.channel} />
@@ -1432,6 +1561,25 @@ export function VendorUsage({
           <State loading={false} />
         )}
       </section>
+      <div className="report-pagination">
+        <button
+          className="secondary"
+          disabled={page === 1}
+          onClick={() => setPage((p) => p - 1)}
+        >
+          {tr("Sebelumnya")}
+        </button>
+        <span>
+          {tr("Halaman")} {page} · {data.totalGroups} {tr("kelompok biaya")}
+        </span>
+        <button
+          className="secondary"
+          disabled={!data.hasMore}
+          onClick={() => setPage((p) => p + 1)}
+        >
+          {tr("Berikutnya")}
+        </button>
+      </div>
       <div className="info-callout">
         <ShieldCheck size={18} />
         <p>

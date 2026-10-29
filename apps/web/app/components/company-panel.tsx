@@ -89,7 +89,12 @@ export function CompanyPanel({ request }: { request: Api }) {
                 const result = await request(
                   "platform/companies",
                   "POST",
-                  Object.fromEntries(f),
+                  Object.fromEntries(
+                    [...f].filter(
+                      ([key, value]) =>
+                        key !== "corporateId" || String(value).trim() !== "",
+                    ),
+                  ),
                 );
                 setCreated(result);
                 setShow(false);
@@ -104,6 +109,16 @@ export function CompanyPanel({ request }: { request: Api }) {
           >
             <h3>{tr("Identitas perusahaan")}</h3>
             <div className="form-grid">
+              <label className="field">
+                <span>{tr("Corporate ID")}</span>
+                <input
+                  name="corporateId"
+                  minLength={3}
+                  maxLength={60}
+                  pattern="[A-Za-z0-9_-]+"
+                  placeholder={tr("Otomatis jika dikosongkan")}
+                />
+              </label>
               <label className="field">
                 <span>{tr("Nama perusahaan")}</span>
                 <input name="name" required minLength={2} maxLength={120} />
@@ -207,6 +222,7 @@ export function CompanyPanel({ request }: { request: Api }) {
                 <th>{tr("Zona waktu")}</th>
                 <th>{tr("Tim")}</th>
                 <th>{tr("Pengguna")}</th>
+                <th>{tr("Corporate ID")}</th>
                 <th>{tr("Company ID")}</th>
               </tr>
             </thead>
@@ -219,6 +235,7 @@ export function CompanyPanel({ request }: { request: Api }) {
                   <td>{c.timezone}</td>
                   <td>{c.teams}</td>
                   <td>{c.users}</td>
+                  <td className="mono">{c.corporate_id}</td>
                   <td className="mono">{c.id}</td>
                 </tr>
               ))}

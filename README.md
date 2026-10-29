@@ -18,6 +18,17 @@ The interface follows a purple enterprise workspace: grouped navigation, light/d
 - Operational dashboard, observed channel metrics, internal vendor usage, saved personal widgets and layouts.
 - Versioned vendor definitions/accounts and encrypted credentials. Generic HTTP mapping configuration exists; actual generic sending/callbacks remain unfinished and real-account activation is rejected.
 
+## Company governance and workspace updates
+
+- **Change history** records company releases, issue fixes, enhancements, deployment references and status transitions. Company admins register records; registration does not deploy code. Saved details are corrected with a new linked record.
+- **Maintenance** is company-specific. Standard users cannot sign in/use operational APIs; administrators retain access to turn it off. Queued/scheduled dispatch and incoming datasets wait. Already-started work may finish; expired schedules still require explicit rescheduling.
+- **Access & audit** supports 10/30/50/100 rows, dates, menu/use case, exact action, search and semantic/database event filters. Pages retain the search time cutoff; refresh includes newer activity. Metadata capture records changed field names and allowed before/after values, never passwords, API secrets or full message/recipient data. The API now returns an items/total/page/limit/snapshot envelope.
+- **User management** displays corporate ID, employee ID, work details and explicit role levels. Role levels are organizational metadata; permissions and approval memberships remain explicit. Company/team assignments are validated server-side.
+- Sidebar width supports mouse/keyboard resizing; the persistent workspace keeps sidebar scroll on menu navigation. Login uses a restrained, empty-by-default form; demo shortcuts require NEXT_PUBLIC_DEMO_ACCOUNTS=true at build time.
+- Creator provenance is recorded in application metadata, About and [AUTHORS.md](AUTHORS.md), without tracking or hidden access.
+
+[Implementation scope](docs/governance-experience-plan.md) · [Verification evidence](docs/governance-verification.md) · [Login source references](docs/login-design-references.md)
+
 ## Server installation / Instalasi server
 
 - **[Step-by-step English guide](docs/deployment-en.md)** — Docker/Compose, migrations, first operator, HTTPS, backups, upgrades, optional Web Push and Kubernetes.
@@ -70,6 +81,7 @@ Local schedules require the computer and services to stay running. Expired unsta
 | `/finance/usage`                            | Internal estimates and ledger spend by vendor/channel/team                      |
 | `/finance/allocation`                       | Cost-centre budgets, topups, ledger/export                                      |
 | `/finance/reconciliation`                   | Unconfirmed local outcomes; provider invoice matching is unavailable            |
+| `/updates`, `/settings/maintenance`, `/about` | Company change history, admin maintenance controls and application provenance |
 | `/settings/companies`                       | Platform-only company onboarding; company admins cannot create other tenants    |
 | `/settings/notifications`, `/help`          | Device push preferences/history and bilingual user manual                       |
 | `/settings/providers`                       | Vendor configurations, encrypted accounts, rates                                |

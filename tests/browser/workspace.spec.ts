@@ -924,11 +924,17 @@ test("dropdown keyboard selection and Escape preserve the campaign form", async 
   await page.getByRole("button", { name: "Tutup", exact: true }).click();
 });
 
-test('English login labels preserve entered credentials while switching language',async({page})=>{
- await page.goto('/');
- await page.getByLabel('Email',{exact:true}).fill('viewer@example.test');
- await selectOption(page.getByLabel('Bahasa',{exact:true}),'en');
- await expect(page.getByRole('button',{name:'Sign in',exact:true})).toBeVisible();
- await expect(page.getByLabel('Password',{exact:true})).toBeVisible();
- await expect(page.getByLabel('Email',{exact:true})).toHaveValue('viewer@example.test');
+test("English login labels preserve entered credentials while switching language", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByLabel("Email", { exact: true }).fill("viewer@example.test");
+  await selectOption(page.getByLabel("Bahasa", { exact: true }), "en");
+  await expect(
+    page.getByRole("button", { name: "Sign in", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Email", { exact: true })).toHaveValue(
+    "viewer@example.test",
+  );
 });

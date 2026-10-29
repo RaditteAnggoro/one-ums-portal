@@ -350,6 +350,14 @@ export async function createRun(
   intended: Date,
   explicitKey?: string,
 ) {
+  const company = (
+    await db.query(
+      "SELECT maintenance_enabled FROM companies WHERE id=$1 FOR SHARE",
+      [c.company_id],
+    )
+  ).rows[0];
+  if (company?.maintenance_enabled) return;
+
   const key = explicitKey ?? `${c.id}-v${c.version}-${intended.toISOString()}`;
   const created = await db.query(
     "INSERT INTO runs(company_id,campaign_id,version,occurrence_key,intended_at,status) VALUES($1,$2,$3,$4,$5,'PREFLIGHT') ON CONFLICT(occurrence_key) DO NOTHING RETURNING *",
@@ -375,6 +383,16 @@ export async function createRun(
   return run.id;
 }
 export async function preflight(db: PoolClient, c: any, runId: string) {
+  if (
+    (
+      await db.query(
+        "SELECT maintenance_enabled FROM companies WHERE id=$1 FOR SHARE",
+        [c.company_id],
+      )
+    ).rows[0]?.maintenance_enabled
+  )
+    throw new ConflictException("Perusahaan sedang dalam pemeliharaan.");
+
   if (!["APPROVED", "SCHEDULED"].includes(c.status))
     throw new ConflictException(
       "Kampanye harus aktif dan disetujui sebelum eksekusi.",
@@ -716,7 +734,7 @@ export async function schedulerTick() {
       return;
     const campaigns = (
       await db.query(
-        "SELECT * FROM campaigns WHERE status='SCHEDULED' FOR UPDATE",
+        "SELECT c.* FROM campaigns c JOIN companies co ON co.id=c.company_id WHERE c.status='SCHEDULED' AND NOT co.maintenance_enabled FOR UPDATE OF c",
       )
     ).rows;
     for (const c of campaigns) {
@@ -742,7 +760,7 @@ export async function schedulerTick() {
     }
     const planned = (
       await db.query(
-        "SELECT * FROM runs WHERE status='PLANNED' AND intended_at<=now() FOR UPDATE",
+        "SELECT r.* FROM runs r JOIN companies co ON co.id=r.company_id WHERE r.status='PLANNED' AND r.intended_at<=now() AND NOT co.maintenance_enabled FOR UPDATE OF r",
       )
     ).rows;
     for (const run of planned) {

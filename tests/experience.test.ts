@@ -1,3 +1,8 @@
+import {
+  statusLabel,
+  messageStatusCodes,
+} from "../packages/domain/src/status.js";
+import ExcelJS from "exceljs";
 import { describe, it, expect, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
@@ -92,4 +97,42 @@ describe("service worker authorization before display", () => {
     const r = await push(true, "https://evil.example/");
     expect(r.display).not.toHaveBeenCalled();
   });
+});
+
+it("round-trips XLSX conditional formatting through the patched uuid dependency", async () => {
+  const workbook = new ExcelJS.Workbook(),
+    sheet = workbook.addWorksheet("Contacts");
+  sheet.addRow(["name", "email"]);
+  sheet.addRow(["Synthetic", "test@example.test"]);
+  sheet.addConditionalFormatting({
+    ref: "A2:A2",
+    rules: [
+      {
+        type: "dataBar",
+        minLength: 0,
+        maxLength: 100,
+        gradient: true,
+        showValue: true,
+        cfvo: [{ type: "min" }, { type: "max" }],
+        color: { argb: "FF7733CC" },
+      },
+    ],
+  });
+  const bytes = await workbook.xlsx.writeBuffer();
+  const read = new ExcelJS.Workbook();
+  await read.xlsx.load(bytes);
+  expect(read.getWorksheet("Contacts")!.getRow(2).getCell(1).value).toBe(
+    "Synthetic",
+  );
+});
+
+it("labels every supported message status in both languages from stable codes", () => {
+  for (const code of messageStatusCodes) {
+    expect(statusLabel(code, "en", "message")).not.toBe(code);
+    expect(statusLabel(code, "id", "message")).not.toBe(code);
+  }
+  expect(statusLabel("FAILED", "en", "message")).toBe("Final failed");
+  expect(statusLabel("FAILED", "id", "message")).toBe("Gagal final");
+  expect(statusLabel("PENDING_APPROVAL", "en")).toBe("Pending approval");
+  expect(statusLabel("RECOVERY_HOLD", "en")).toBe("Recovery hold");
 });

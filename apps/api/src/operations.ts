@@ -5,6 +5,7 @@ import {
   Req,
   BadRequestException,
 } from "@nestjs/common";
+import { messageStatusCodes } from "../../../packages/domain/src/status.js";
 import type { Request } from "express";
 import { z } from "zod";
 import { pool } from "./db.js";
@@ -13,20 +14,13 @@ import { actorFor, scope, scopeValues, type Actor } from "./context.js";
 const filterSchema = z.object({
   channel: z.enum(["all", "email", "sms", "whatsapp"]).default("all"),
   days: z.enum(["all", "1", "7", "30", "90"]).default("7"),
-  status: z
-    .enum([
-      "all",
-      "QUEUED",
-      "ACCEPTED",
-      "SENT",
-      "DELIVERED",
-      "FAILED",
-      "UNKNOWN",
-      "CANCELLED",
-    ])
-    .default("all"),
+  status: z.enum(["all", ...messageStatusCodes]).default("all"),
   search: z.string().trim().max(160).default(""),
   provider: z.uuid().optional(),
+  costCentre: z.uuid().optional(),
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+  page: z.coerce.number().int().min(1).max(100000).default(1),
   team: z.uuid().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(25),
   cursor: z.string().max(300).optional(),
@@ -47,7 +41,20 @@ function filtered(a: Actor, input: unknown) {
   };
   let where = `${scope(a, "c")} AND m.company_id=$1 AND r.company_id=$1`;
   if (v.channel !== "all") where += ` AND m.channel=${bind(v.channel)}`;
-  if (v.days !== "all")
+  if (
+    v.from &&
+    v.to &&
+    (v.from > v.to || Date.parse(v.to) - Date.parse(v.from) > 366 * 86400000)
+  )
+    throw new BadRequestException(
+      "Rentang tanggal tidak valid atau melebihi 366 hari.",
+    );
+  if (v.from)
+    where += ` AND m.created_at>=(${bind(v.from)}::date::timestamp AT TIME ZONE 'Asia/Jakarta')`;
+  if (v.to)
+    where += ` AND m.created_at<(((${bind(v.to)}::date+1)::timestamp) AT TIME ZONE 'Asia/Jakarta')`;
+  if (v.costCentre) where += ` AND cc.id=${bind(v.costCentre)}`;
+  if (!v.from && !v.to && v.days !== "all")
     where += ` AND m.created_at>=now()-${bind(Number(v.days))}*interval '1 day'`;
   if (v.status !== "all") where += ` AND m.status=${bind(v.status)}`;
   if (v.provider) where += ` AND av.account_id=${bind(v.provider)}`;
@@ -61,9 +68,12 @@ function filtered(a: Actor, input: unknown) {
 const joins = `FROM messages m JOIN runs r ON r.id=m.run_id JOIN campaigns c ON c.id=r.campaign_id
  JOIN teams t ON t.id=c.team_id AND t.company_id=c.company_id
  LEFT JOIN provider_account_versions av ON av.id=m.provider_version_id AND av.company_id=m.company_id
- LEFT JOIN provider_accounts pa ON pa.id=av.account_id AND pa.company_id=m.company_id`;
+ LEFT JOIN provider_accounts pa ON pa.id=av.account_id AND pa.company_id=m.company_id
+ LEFT JOIN provider_definitions pd ON pd.id=av.definition_id AND pd.company_id=m.company_id
+ LEFT JOIN budgets b ON b.id=r.budget_id AND b.company_id=m.company_id
+ LEFT JOIN cost_centres cc ON cc.id=b.cost_centre_id AND cc.company_id=m.company_id`;
 const fields = `m.id,m.channel,m.status,m.created_at,m.updated_at,m.provider_ref,m.run_id,r.campaign_id,c.name AS campaign,t.name AS team,
- COALESCE(pa.name,'Local simulator') AS provider,av.account_id AS provider_id,
+ COALESCE(pa.name,'Test provider') AS provider,av.account_id AS provider_id,
  (SELECT count(*)::int FROM attempts a WHERE a.company_id=m.company_id AND a.message_id=m.id) AS attempt_count,
  CASE WHEN m.status='DELIVERED' THEN round(extract(epoch FROM m.updated_at-m.created_at)*1000)::bigint END AS latency_ms`;
 function clean(row: Record<string, any>, costs: boolean) {
@@ -141,7 +151,7 @@ export class OperationsController {
       )
     ).rows[0];
     let previous = null;
-    if (f.v.days !== "all") {
+    if (!f.v.from && !f.v.to && f.v.days !== "all") {
       const p = filtered(a, { ...f.v, days: "all", cursor: undefined });
       p.where += ` AND m.created_at>=now()-${p.bind(Number(f.v.days) * 2)}*interval '1 day' AND m.created_at<now()-${p.bind(Number(f.v.days))}*interval '1 day'`;
       previous = (
@@ -151,7 +161,7 @@ export class OperationsController {
         )
       ).rows[0];
     }
-    const [trend, channels, failures, queue] = await Promise.all([
+    const [trend, channels, failures, queue, vendors] = await Promise.all([
       pool.query(
         `SELECT to_char(m.created_at AT TIME ZONE 'Asia/Jakarta','YYYY-MM-DD') AS day,count(*)::int AS total,count(*) FILTER(WHERE m.status='DELIVERED')::int AS delivered,count(*) FILTER(WHERE m.status='FAILED')::int AS failed ${joins} WHERE ${f.where} GROUP BY 1 ORDER BY 1 DESC LIMIT 366`,
         f.values,
@@ -168,12 +178,18 @@ export class OperationsController {
         `SELECT min(m.created_at) FILTER(WHERE m.status='QUEUED') AS oldest_queued_at ${joins} WHERE ${f.where}`,
         f.values,
       ),
+      pool.query(
+        `SELECT pd.id AS vendor_id,COALESCE(pd.name,'Test provider') AS vendor,av.account_id AS provider_id,COALESCE(pa.name,'Test provider') AS connection,m.channel,${aggregate},round(100.0*count(*) FILTER(WHERE m.status='FAILED')/NULLIF(count(*),0),2)::text AS failure_rate ${joins} WHERE ${f.where} GROUP BY 1,2,3,4,5 ORDER BY failed DESC,total DESC,provider_id NULLS LAST,m.channel LIMIT 25`,
+        f.values,
+      ),
     ]);
     return {
       totals,
       previous,
       trend: trend.rows.reverse(),
       channels: channels.rows,
+      vendors: vendors.rows,
+      vendorsLimit: 25,
       failures: failures.rows.map((r) => clean(r, false)),
       oldestQueuedAt: queue.rows[0].oldest_queued_at,
       observedAt: new Date().toISOString(),
@@ -188,23 +204,37 @@ export class OperationsController {
   @Get("usage") async usage(@Req() req: Request, @Query() input: unknown) {
     const a = await actorFor(req, "budgets:read"),
       f = filtered(a, input);
-    const rows = (
+    const params = [...f.values, f.v.limit, (f.v.page - 1) * f.v.limit];
+    const result = (
       await pool.query(
-        `SELECT COALESCE(pa.name,'Local simulator') AS provider,av.account_id AS provider_id,m.channel,t.name AS team,count(*)::int AS messages,COALESCE(sum(m.unit_cost),0)::text AS estimated_cost,COALESCE(sum((SELECT sum(l.amount) FROM ledger l WHERE l.company_id=m.company_id AND l.message_id=m.id AND l.kind='SPEND')),0)::text AS ledger_spend,COALESCE(sum((SELECT sum(CASE WHEN l.kind='RESERVE' THEN l.amount WHEN l.kind IN ('RELEASE','SPEND') THEN -l.amount ELSE 0 END) FROM ledger l WHERE l.company_id=m.company_id AND l.message_id=m.id)),0)::text AS reserved_cost ${joins} WHERE ${f.where} GROUP BY 1,2,3,4 ORDER BY 1,3,4`,
-        f.values,
+        `WITH selected AS MATERIALIZED (
+      SELECT m.id,COALESCE(pd.name,'Test provider') AS vendor,pd.id AS vendor_id,COALESCE(pa.name,'Test provider') AS provider,av.account_id AS provider_id,m.channel,t.id AS team_id,t.name AS team,cc.id AS cost_centre_id,COALESCE(cc.name,'Unassigned') AS cost_centre,m.unit_cost ${joins} WHERE ${f.where}
+    ), money AS (
+      SELECT l.message_id,sum(l.amount) FILTER(WHERE l.kind='SPEND') AS spent,sum(l.amount) FILTER(WHERE l.kind IN ('RELEASE','SPEND')) AS settled FROM ledger l JOIN selected s ON s.id=l.message_id WHERE l.company_id=$1 GROUP BY l.message_id
+    ), grouped AS (
+      SELECT s.vendor,s.vendor_id,s.provider,s.provider_id,s.channel,s.team_id,s.team,s.cost_centre_id,s.cost_centre,count(*)::int AS messages,sum(s.unit_cost)::text AS estimated_cost,coalesce(sum(l.spent),0)::text AS ledger_spend,coalesce(sum(greatest(s.unit_cost-coalesce(l.settled,0),0)),0)::text AS reserved_cost FROM selected s LEFT JOIN money l ON l.message_id=s.id GROUP BY 1,2,3,4,5,6,7,8,9
+    ) SELECT (SELECT coalesce(jsonb_agg(p),'[]') FROM (SELECT * FROM grouped ORDER BY cost_centre,provider,channel,team,cost_centre_id,provider_id,team_id LIMIT $${params.length - 1} OFFSET $${params.length}) p) AS items,
+      (SELECT jsonb_build_object('messages',coalesce(sum(messages),0),'estimated_cost',coalesce(sum(estimated_cost::numeric),0)::text,'ledger_spend',coalesce(sum(ledger_spend::numeric),0)::text,'reserved_cost',coalesce(sum(reserved_cost::numeric),0)::text) FROM grouped) AS totals,
+      (SELECT count(*)::int FROM grouped) AS total_groups`,
+        params,
       )
-    ).rows;
+    ).rows[0];
     return {
-      items: rows.map((r) => ({
+      items: result.items.map((r: Record<string, unknown>) => ({
         ...r,
         currency: "IDR",
         provider_reported_cost: null,
         invoiced_cost: null,
       })),
+      totals: result.totals,
+      page: f.v.page,
+      limit: f.v.limit,
+      totalGroups: result.total_groups,
+      hasMore: f.v.page * f.v.limit < result.total_groups,
       mode: "simulation",
       observedAt: new Date().toISOString(),
       billingNote:
-        "Amounts are exact local simulated ledger values. Provider usage, invoices, FX and contract-specific billable quantities are not connected.",
+        "Estimates, reservations and settled ledger spend are distinct; external provider fees and invoices are not connected.",
     };
   }
 }

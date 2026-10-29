@@ -1,10 +1,13 @@
 import { notFound } from "next/navigation";
-import Home from "../page";
+
 const routes = new Set([
   "dashboard",
   "help",
   "settings/notifications",
   "settings/companies",
+  "settings/maintenance",
+  "updates",
+  "about",
   "messages",
   "deliveries",
   "channels",
@@ -28,5 +31,5 @@ export default async function Screen({
 }) {
   const { screen } = await params;
   if (!routes.has(screen.join("/"))) notFound();
-  return <Home />;
+  return null;
 }

@@ -532,3 +532,125 @@ export const guideArticles: GuideArticle[] = [
     },
   },
 ];
+
+guideArticles.push(
+  {
+    id: "releases",
+    menu: "releases",
+    idText: {
+      title: "Riwayat perubahan dan deployment",
+      summary:
+        "Telusuri perbaikan, peningkatan, fitur, dan riwayat status per perusahaan.",
+      steps: [
+        "Buka Riwayat perubahan untuk melihat versi, lingkungan, waktu deployment, pembuat catatan, dan rincian perubahan.",
+        "Admin memilih Daftarkan perubahan, mengisi metadata rilis dan satu atau beberapa jenis perubahan, lalu menyimpan.",
+        "Untuk rilis terencana, catat status diterapkan setelah deployment benar-benar diverifikasi. Catat rollback beserta alasannya jika diperlukan.",
+        "Rincian yang sudah disimpan dipertahankan. Daftarkan catatan koreksi dengan referensi ke rilis sebelumnya.",
+        "Gunakan pencarian dan halaman berikutnya untuk riwayat lama. Buka Riwayat status untuk melihat perubahan status dan pelakunya.",
+      ],
+      note: "Registrasi rilis hanya mencatat deployment; tidak menjalankan deployment. Pengguna biasa dapat membaca catatan perusahaannya, sedangkan pendaftaran/status hanya untuk admin perusahaan.",
+    },
+    enText: {
+      title: "Change and deployment history",
+      summary:
+        "Trace fixes, enhancements, features and status history within a company.",
+      steps: [
+        "Open Change history to inspect version, environment, deployment time, registrant and change items.",
+        "An administrator selects Register changes, enters release metadata and one or more change items, then saves.",
+        "For a planned release, record deployment only after verification. Record rollback with a reason when needed.",
+        "Saved details are retained. Create a correction record referencing the earlier release.",
+        "Use search and pagination for older records. Expand Status history to see transitions and their authors.",
+      ],
+      note: "Release registration records a deployment; it does not execute one. Standard users can read their company records; registration and status changes require company administration.",
+    },
+  },
+  {
+    id: "maintenance",
+    menu: "maintenance",
+    permission: "admin:write",
+    idText: {
+      title: "Pemeliharaan per perusahaan",
+      summary: "Batasi layanan perusahaan saat perubahan terencana.",
+      steps: [
+        "Buka Pemeliharaan dan periksa status serta corporate ID perusahaan.",
+        "Isi informasi dan alasan pemeliharaan, konfirmasi dampaknya, lalu aktifkan.",
+        "Pengguna biasa tidak dapat login atau menggunakan sesi operasional. Admin tetap dapat masuk untuk mengelola pemeliharaan.",
+        "Eksekusi baru dan data masuk ditahan selama mode aktif; pekerjaan yang sudah berlangsung dapat selesai.",
+        "Sesudah verifikasi selesai, isi alasan pembukaan layanan dan nonaktifkan pemeliharaan. Periksa jadwal terlewat dan lakukan penjadwalan ulang secara eksplisit jika diperlukan.",
+      ],
+      note: "Pengaturan berlaku hanya untuk perusahaan admin tersebut. Perusahaan lain tetap beroperasi. Perubahan status dicatat di Akses & audit.",
+    },
+    enText: {
+      title: "Company maintenance",
+      summary: "Restrict a company during planned changes.",
+      steps: [
+        "Open Maintenance and check the service state and corporate ID.",
+        "Enter information and a reason, confirm the impact, then enable maintenance.",
+        "Standard users cannot sign in or use operational sessions. Administrators retain access to manage maintenance.",
+        "New executions and incoming data are held while enabled; work already in progress may finish.",
+        "After verification, enter the reopening reason and disable maintenance. Review missed schedules and explicitly reschedule if needed.",
+      ],
+      note: "The setting affects only the administrator’s company. Other companies continue operating. Changes appear in Access & audit.",
+    },
+  },
+  {
+    id: "audit-details",
+    menu: "audit",
+    permission: "audit:read",
+    idText: {
+      title: "Filter dan investigasi perubahan",
+      summary:
+        "Cari peristiwa bisnis serta perubahan data dengan halaman yang stabil.",
+      steps: [
+        "Buka Akses & audit, pilih tanggal dan menu/use case, lalu Terapkan filter.",
+        "Pilih 10, 30, 50, atau 100 baris per halaman. Halaman berikutnya memakai batas waktu pencarian yang sama; muat ulang untuk melihat aktivitas terbaru.",
+        "Pilih Peristiwa bisnis untuk aksi pengguna, atau Perubahan data untuk metadata perubahan yang direkam database.",
+        "Isi aksi spesifik seperti auth.login atau campaign.created jika perlu pencarian yang tepat.",
+        "Buka Lihat perubahan untuk kolom berubah, nilai metadata sebelum/sesudah yang diizinkan, alamat IP, dan ID korelasi. Pilih Muat terbaru untuk catatan yang baru masuk.",
+      ],
+      note: "Audit tidak menyalin kata sandi, API key, isi pesan, atau seluruh data penerima. Akses mengikuti izin dan perusahaan/tim. Aksi layanan dapat tercatat sebagai Sistem.",
+    },
+    enText: {
+      title: "Filter and investigate changes",
+      summary:
+        "Find business events and data changes with stable result pages.",
+      steps: [
+        "Open Access & audit, choose dates and a menu/use case, then Apply filters.",
+        "Choose 10, 30, 50 or 100 rows per page. Further pages use the same search time cutoff; refresh to include the latest activity.",
+        "Choose Business events for semantic user actions, or Data changes for metadata captured by the database.",
+        "Enter an exact action such as auth.login or campaign.created when needed.",
+        "Open View changes for changed fields, allowed before/after metadata, IP and correlation ID. Load latest starts a fresh view.",
+      ],
+      note: "Audit does not copy passwords, API keys, message content or full recipient data. Access follows company/team permissions. Service activity may appear as System.",
+    },
+  },
+  {
+    id: "workspace-personalization",
+    menu: "settings",
+    idText: {
+      title: "Navigasi dan informasi pengguna",
+      summary: "Atur sidebar dan pahami identitas kerja serta level peran.",
+      steps: [
+        "Gunakan pegangan di tepi sidebar untuk menarik lebar navigasi. Saat pegangan fokus, gunakan panah kiri/kanan; klik dua kali untuk mengembalikan lebar awal.",
+        "Posisi scroll sidebar dipertahankan saat berpindah menu. Collapse tetap tersedia secara terpisah; layar kecil menggunakan navigasi ringkas.",
+        "Admin membuka Pengaturan untuk mencari pengguna dan mengisi ID pegawai, departemen, jabatan serta telepon kerja. Corporate ID mengidentifikasi perusahaan.",
+        "Peran memiliki level organisasi, izin fungsi dan cakupan data. Susun tingkat persetujuan dengan menetapkan peran secara eksplisit.",
+        "Gunakan Tentang aplikasi untuk informasi pembuat dan identitas karya.",
+      ],
+      note: "Level peran tidak otomatis menambah izin atau melewati tahap persetujuan. Data perusahaan lain tetap tidak dapat diakses.",
+    },
+    enText: {
+      title: "Navigation and work identity",
+      summary:
+        "Adjust navigation and understand user work details and role levels.",
+      steps: [
+        "Drag the sidebar edge handle to adjust width. When focused, use left/right arrows; double-click to restore the default.",
+        "Sidebar scroll position stays in place across menus. Collapse remains separate; small screens use compact navigation.",
+        "Administrators open Settings to find users and enter employee ID, department, job title and work phone. Corporate ID identifies the company.",
+        "Roles have an organizational level, function permissions and data scope. Assign roles explicitly to approval stages.",
+        "Open About for creator information and project provenance.",
+      ],
+      note: "Role level does not automatically grant permissions or bypass approvals. Other companies’ data remains inaccessible.",
+    },
+  },
+);

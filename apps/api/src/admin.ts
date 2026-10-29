@@ -6,6 +6,7 @@ import {
   Put,
   Param,
   Req,
+  Query,
   BadRequestException,
   NotFoundException,
 } from "@nestjs/common";
@@ -30,6 +31,18 @@ export const permissions = [
   "audit:read",
   "admin:write",
 ] as const;
+const workDetails = z.object({
+  employeeId: z.string().trim().max(60).default(""),
+  department: z.string().trim().max(100).default(""),
+  jobTitle: z.string().trim().max(100).default(""),
+  workPhone: z.string().trim().max(40).default(""),
+});
+const roleSchema = z.object({
+  name: z.string().trim().min(2).max(100),
+  permissions: z.array(z.enum(permissions)).min(1),
+  companyScope: z.boolean().default(false),
+  level: z.coerce.number().int().min(1).max(99).default(1),
+});
 @Controller("admin")
 export class AdminController {
   @Put("dashboard-default") async dashboardDefault(
@@ -89,28 +102,60 @@ export class AdminController {
       mode: "simulation",
     };
   }
-  @Get("workspace") async workspace(@Req() req: Request) {
+  @Get("workspace") async workspace(
+    @Req() req: Request,
+    @Query() input: unknown,
+  ) {
     const a = await actorFor(req, "admin:write");
-    const [users, teams, roles, costCentres] = await Promise.all([
+    const v = z
+      .object({
+        page: z.coerce.number().int().min(1).max(100000).default(1),
+        limit: z.coerce
+          .number()
+          .pipe(
+            z.union([
+              z.literal(10),
+              z.literal(30),
+              z.literal(50),
+              z.literal(100),
+            ]),
+          )
+          .default(30),
+        search: z.string().trim().max(100).default(""),
+      })
+      .parse(input);
+    const [users, teams, roles, costCentres, company] = await Promise.all([
       pool.query(
-        "SELECT u.id,u.name,u.email,u.team_id,u.role_id,u.active,t.name AS team,r.name AS role FROM users u JOIN teams t ON t.id=u.team_id JOIN roles r ON r.id=u.role_id WHERE u.company_id=$1 ORDER BY u.name",
-        [a.company_id],
+        "SELECT u.id,u.name,u.email,u.team_id,u.role_id,u.active,u.employee_id,u.department,u.job_title,u.work_phone,t.name AS team,r.name AS role,r.level AS role_level,count(*) OVER()::int AS total_count FROM users u JOIN teams t ON t.id=u.team_id AND t.company_id=u.company_id JOIN roles r ON r.id=u.role_id AND r.company_id=u.company_id WHERE u.company_id=$1 AND (u.name ILIKE $2 OR u.email ILIKE $2 OR u.employee_id ILIKE $2) ORDER BY u.name,u.id LIMIT $3 OFFSET $4",
+        [
+          a.company_id,
+          "%" + v.search.replace(/[\\%_]/g, "\\$&") + "%",
+          v.limit,
+          (v.page - 1) * v.limit,
+        ],
       ),
       pool.query(
         "SELECT id,name FROM teams WHERE company_id=$1 ORDER BY name",
         [a.company_id],
       ),
       pool.query(
-        "SELECT id,name,permissions,company_scope FROM roles WHERE company_id=$1 ORDER BY name",
+        "SELECT id,name,permissions,company_scope,level FROM roles WHERE company_id=$1 ORDER BY name",
         [a.company_id],
       ),
       pool.query(
         "SELECT id,name,team_id FROM cost_centres WHERE company_id=$1 ORDER BY name",
         [a.company_id],
       ),
+      pool.query("SELECT id,name,corporate_id FROM companies WHERE id=$1", [
+        a.company_id,
+      ]),
     ]);
     return {
       users: users.rows,
+      company: company.rows[0],
+      userTotal: users.rows[0]?.total_count ?? 0,
+      userPage: v.page,
+      userLimit: v.limit,
       teams: teams.rows,
       roles: roles.rows,
       costCentres: costCentres.rows,
@@ -135,36 +180,32 @@ export class AdminController {
   }
   @Post("roles") async role(@Req() req: Request, @Body() input: unknown) {
     const a = await actorFor(req, "admin:write");
-    const v = z
-      .object({
-        name: z.string().trim().min(2).max(100),
-        permissions: z.array(z.enum(permissions)).min(1),
-        companyScope: z.boolean().default(false),
-      })
-      .parse(input);
+    const v = roleSchema.parse(input);
     return transaction(async (db) => {
       const r = (
         await db.query(
-          "INSERT INTO roles(company_id,name,permissions,company_scope) VALUES($1,$2,$3,$4) RETURNING id,name",
+          "INSERT INTO roles(company_id,name,permissions,company_scope,level) VALUES($1,$2,$3,$4,$5) RETURNING id,name,level",
           [
             a.company_id,
             v.name,
             JSON.stringify([...new Set(v.permissions)]),
             v.companyScope,
+            v.level,
           ],
         )
       ).rows[0];
       await audit(db, a, "role.created", "role", r.id, {
         permissions: v.permissions,
         companyScope: v.companyScope,
+        level: v.level,
       });
       return r;
     });
   }
   @Post("users") async user(@Req() req: Request, @Body() input: unknown) {
     const a = await actorFor(req, "admin:write");
-    const v = z
-      .object({
+    const v = workDetails
+      .extend({
         name: z.string().trim().min(2).max(100),
         email: z.email().max(254),
         password: z.string().min(12).max(256),
@@ -187,7 +228,7 @@ export class AdminController {
         );
       const user = (
         await db.query(
-          "INSERT INTO users(company_id,team_id,role_id,email,name,password_hash) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,email,name",
+          "INSERT INTO users(company_id,team_id,role_id,email,name,password_hash,employee_id,department,job_title,work_phone) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id,email,name",
           [
             a.company_id,
             v.teamId,
@@ -195,6 +236,10 @@ export class AdminController {
             v.email.toLowerCase(),
             v.name,
             passwordHash(v.password),
+            v.employeeId,
+            v.department,
+            v.jobTitle,
+            v.workPhone,
           ],
         )
       ).rows[0];
@@ -203,6 +248,106 @@ export class AdminController {
         roleId: v.roleId,
       });
       return user;
+    });
+  }
+  @Put("users/:id/details") async details(
+    @Req() req: Request,
+    @Param("id") id: string,
+    @Body() input: unknown,
+  ) {
+    const a = await actorFor(req, "admin:write");
+    z.uuid().parse(id);
+    const v = workDetails
+      .extend({
+        name: z.string().trim().min(2).max(100),
+        email: z.email().max(254),
+      })
+      .parse(input);
+    return transaction(async (db) => {
+      const old = (
+        await db.query(
+          "SELECT name,email,employee_id,department,job_title,work_phone FROM users WHERE company_id=$1 AND id=$2 FOR UPDATE",
+          [a.company_id, id],
+        )
+      ).rows[0];
+      if (!old) throw new NotFoundException();
+      const email = v.email.toLowerCase();
+      if (a.id === id && old.email !== email)
+        throw new BadRequestException(
+          "Gunakan administrator lain untuk mengubah email akun Anda.",
+        );
+      await db.query(
+        "UPDATE users SET name=$3,email=$4,employee_id=$5,department=$6,job_title=$7,work_phone=$8 WHERE company_id=$1 AND id=$2",
+        [
+          a.company_id,
+          id,
+          v.name,
+          email,
+          v.employeeId,
+          v.department,
+          v.jobTitle,
+          v.workPhone,
+        ],
+      );
+      if (email !== old.email)
+        await db.query("DELETE FROM sessions WHERE user_id=$1", [id]);
+      await audit(db, a, "user.details_updated", "user", id, {
+        changedFields: Object.entries({
+          name: v.name,
+          email,
+          employee_id: v.employeeId,
+          department: v.department,
+          job_title: v.jobTitle,
+          work_phone: v.workPhone,
+        })
+          .filter(([k, value]) => old[k] !== value)
+          .map(([k]) => k),
+        emailChanged: email !== old.email,
+      });
+      return { ok: true };
+    });
+  }
+  @Put("roles/:id") async editRole(
+    @Req() req: Request,
+    @Param("id") id: string,
+    @Body() input: unknown,
+  ) {
+    const a = await actorFor(req, "admin:write");
+    z.uuid().parse(id);
+    if (id === a.role_id)
+      throw new BadRequestException(
+        "Gunakan administrator lain untuk mengubah peran Anda.",
+      );
+    const v = roleSchema.parse(input);
+    return transaction(async (db) => {
+      const old = (
+        await db.query(
+          "SELECT id FROM roles WHERE company_id=$1 AND id=$2 FOR UPDATE",
+          [a.company_id, id],
+        )
+      ).rows[0];
+      if (!old) throw new NotFoundException();
+      await db.query(
+        "UPDATE roles SET name=$3,permissions=$4,company_scope=$5,level=$6 WHERE company_id=$1 AND id=$2",
+        [
+          a.company_id,
+          id,
+          v.name,
+          JSON.stringify([...new Set(v.permissions)]),
+          v.companyScope,
+          v.level,
+        ],
+      );
+      await db.query(
+        "DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE company_id=$1 AND role_id=$2)",
+        [a.company_id, id],
+      );
+      await audit(db, a, "role.updated", "role", id, {
+        permissions: v.permissions,
+        companyScope: v.companyScope,
+        level: v.level,
+      });
+      return { ok: true };
     });
   }
   @Put("users/:id") async updateUser(

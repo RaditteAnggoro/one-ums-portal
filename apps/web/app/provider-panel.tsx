@@ -267,7 +267,9 @@ export function ProviderPanel({
                     </small>
                   </td>
                   <td>{r.price}</td>
-                  <td>{new Date(r.effective_from).toLocaleString(localeTag())}</td>
+                  <td>
+                    {new Date(r.effective_from).toLocaleString(localeTag())}
+                  </td>
                   <td>
                     {r.effective_until
                       ? new Date(r.effective_until).toLocaleString(localeTag())

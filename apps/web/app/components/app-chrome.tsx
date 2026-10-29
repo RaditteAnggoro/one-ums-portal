@@ -1,7 +1,7 @@
 "use client";
 import { Select } from "./select";
 import { t as tr, useLanguage } from "./i18n";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   LayoutDashboard,
   MessagesSquare,
@@ -28,10 +28,36 @@ import {
   ChevronRight,
   ChevronsUpDown,
   HelpCircle,
+  Wrench,
+  History,
+  Info,
+  GripVertical,
   Command,
 } from "lucide-react";
 type Row = Record<string, any>;
 export const navigation = [
+  {
+    key: "maintenance",
+    label: "Pemeliharaan",
+    group: "Administration",
+    route: "/settings/maintenance",
+    icon: Wrench,
+    permission: "admin:write",
+  },
+  {
+    key: "releases",
+    label: "Riwayat perubahan",
+    group: "Support",
+    route: "/updates",
+    icon: History,
+  },
+  {
+    key: "about",
+    label: "Tentang aplikasi",
+    group: "Support",
+    route: "/about",
+    icon: Info,
+  },
   {
     key: "push",
     label: "Notifikasi perangkat",
@@ -180,10 +206,14 @@ export function permittedNavigation(user: Row) {
 }
 export function useShellPreferences() {
   const [collapsed, setCollapsed] = useState(false),
-    [theme, setTheme] = useState("light");
+    [theme, setTheme] = useState("light"),
+    [width, setWidth] = useState(248);
   useEffect(() => {
     try {
       setCollapsed(localStorage.getItem("ums.sidebar") === "collapsed");
+      const saved = Number(localStorage.getItem("ums.sidebar.width"));
+      if (Number.isFinite(saved) && saved >= 208 && saved <= 420)
+        setWidth(saved);
       setTheme(localStorage.getItem("ums.theme") ?? "light");
     } catch {}
   }, []);
@@ -211,7 +241,14 @@ export function useShellPreferences() {
       } catch {}
       return !old;
     });
-  return { collapsed, toggle, theme, changeTheme };
+  const resize = (next: number) => {
+    const value = Math.max(208, Math.min(420, Math.round(next)));
+    setWidth(value);
+    try {
+      localStorage.setItem("ums.sidebar.width", String(value));
+    } catch {}
+  };
+  return { collapsed, toggle, theme, changeTheme, width, resize };
 }
 export function UMSBrand() {
   return (
@@ -235,6 +272,8 @@ export function AppSidebar({
   toggle,
   navigate,
   profile,
+  width,
+  resize,
 }: {
   user: Row;
   page: string;
@@ -243,8 +282,26 @@ export function AppSidebar({
   toggle: () => void;
   navigate: (key: string) => void;
   profile: () => void;
+  width: number;
+  resize: (width: number) => void;
 }) {
   const links = permittedNavigation(user);
+  const nav = useRef<HTMLElement>(null),
+    lastUser = useRef(user.id),
+    dragStart = useRef<{ x: number; width: number } | null>(null),
+    expandedScroll = useRef(0);
+  useLayoutEffect(() => {
+    if (lastUser.current !== user.id) {
+      nav.current?.scrollTo({ top: 0 });
+      lastUser.current = user.id;
+      expandedScroll.current = 0;
+    }
+  }, [user.id]);
+  useLayoutEffect(() => {
+    if (!collapsed && nav.current)
+      nav.current.scrollTop = expandedScroll.current;
+  }, [collapsed]);
+
   return (
     <aside className="sidebar ums-sidebar">
       <button
@@ -266,7 +323,14 @@ export function AppSidebar({
         </span>
         <ChevronsUpDown size={14} />
       </div>
-      <nav aria-label={tr("Navigasi utama")}>
+      <nav
+        ref={nav}
+        onScroll={(event) => {
+          if (!collapsed)
+            expandedScroll.current = event.currentTarget.scrollTop;
+        }}
+        aria-label={tr("Navigasi utama")}
+      >
         {[
           "Overview",
           "Operations",
@@ -337,6 +401,59 @@ export function AppSidebar({
           <span className="nav-text">{tr("Ciutkan navigasi")}</span>
         </button>
       </div>
+      {!collapsed && (
+        <div
+          className="sidebar-resizer"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={tr("Ubah lebar navigasi")}
+          aria-valuemin={208}
+          aria-valuemax={420}
+          aria-valuenow={width}
+          tabIndex={0}
+          onDoubleClick={() => resize(248)}
+          onKeyDown={(event) => {
+            if (
+              ["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)
+            ) {
+              event.preventDefault();
+              resize(
+                event.key === "Home"
+                  ? 208
+                  : event.key === "End"
+                    ? 420
+                    : width + (event.key === "ArrowRight" ? 16 : -16),
+              );
+            }
+          }}
+          onPointerDown={(event) => {
+            if (event.button !== 0) return;
+            event.preventDefault();
+            const target = event.currentTarget;
+            dragStart.current = { x: event.clientX, width };
+            target.setPointerCapture(event.pointerId);
+          }}
+          onPointerMove={(event) => {
+            if (
+              event.currentTarget.hasPointerCapture(event.pointerId) &&
+              dragStart.current
+            )
+              resize(
+                dragStart.current.width + event.clientX - dragStart.current.x,
+              );
+          }}
+          onPointerUp={(event) => {
+            if (event.currentTarget.hasPointerCapture(event.pointerId))
+              event.currentTarget.releasePointerCapture(event.pointerId);
+            dragStart.current = null;
+          }}
+          onPointerCancel={() => {
+            dragStart.current = null;
+          }}
+        >
+          <GripVertical size={14} />
+        </div>
+      )}
     </aside>
   );
 }

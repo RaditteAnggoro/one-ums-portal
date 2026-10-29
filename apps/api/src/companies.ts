@@ -27,6 +27,14 @@ export async function platformActor(req: Request) {
 }
 export const companySchema = z.object({
   name: z.string().trim().min(2).max(120),
+  corporateId: z
+    .string()
+    .trim()
+    .min(3)
+    .max(60)
+    .regex(/^[A-Za-z0-9_-]+$/)
+    .transform((v) => v.toUpperCase())
+    .optional(),
   timezone: z
     .string()
     .min(2)
@@ -54,8 +62,8 @@ export async function provisionCompany(
   return transaction(async (db) => {
     const c = (
       await db.query(
-        "INSERT INTO companies(name,timezone) VALUES($1,$2) RETURNING id,name,timezone",
-        [input.name, input.timezone],
+        "INSERT INTO companies(name,timezone,corporate_id) VALUES($1,$2,coalesce($3,'UMS-'||upper(substr(replace(gen_random_uuid()::text,'-',''),1,12)))) RETURNING id,name,timezone,corporate_id",
+        [input.name, input.timezone, input.corporateId ?? null],
       )
     ).rows[0];
     const team = (
@@ -65,8 +73,8 @@ export async function provisionCompany(
       )
     ).rows[0].id;
     const roles: Record<string, string> = {};
-    for (const [name, allowed, scope] of [
-      ["Administrator", [...permissions], true],
+    for (const [name, allowed, scope, level] of [
+      ["Administrator", [...permissions], true, 99],
       [
         "Creator",
         [
@@ -78,8 +86,9 @@ export async function provisionCompany(
           "budgets:read",
         ],
         false,
+        10,
       ],
-      ["Approver", ["campaigns:read", "campaigns:approve"], false],
+      ["Approver", ["campaigns:read", "campaigns:approve"], false, 20],
       [
         "Finance",
         [
@@ -90,13 +99,14 @@ export async function provisionCompany(
           "audit:read",
         ],
         true,
+        30,
       ],
-      ["Viewer", ["campaigns:read"], false],
+      ["Viewer", ["campaigns:read"], false, 1],
     ] as const) {
       roles[name] = (
         await db.query(
-          "INSERT INTO roles(company_id,name,permissions,company_scope) VALUES($1,$2,$3,$4) RETURNING id",
-          [c.id, name, JSON.stringify(allowed), scope],
+          "INSERT INTO roles(company_id,name,permissions,company_scope,level) VALUES($1,$2,$3,$4,$5) RETURNING id",
+          [c.id, name, JSON.stringify(allowed), scope, level],
         )
       ).rows[0].id;
     }
@@ -198,7 +208,7 @@ export class CompaniesController {
     await platformActor(req);
     return (
       await pool.query(
-        `SELECT c.id,c.name,c.timezone,(SELECT count(*)::int FROM users u WHERE u.company_id=c.id) AS users,(SELECT count(*)::int FROM teams t WHERE t.company_id=c.id) AS teams FROM companies c ORDER BY c.name`,
+        `SELECT c.id,c.name,c.timezone,c.corporate_id,(SELECT count(*)::int FROM users u WHERE u.company_id=c.id) AS users,(SELECT count(*)::int FROM teams t WHERE t.company_id=c.id) AS teams FROM companies c ORDER BY c.name`,
       )
     ).rows;
   }

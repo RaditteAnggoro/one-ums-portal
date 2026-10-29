@@ -266,6 +266,7 @@ afterAll(async () => {
   ]);
   for (const f of fixtures)
     await transaction(async (db) => {
+      await db.query("SELECT set_config('app.audit_disabled','true',true)");
       await db.query(
         "DELETE FROM ingestion_requests WHERE source_id IN (SELECT id FROM source_connections WHERE company_id=$1)",
         [f.company],
@@ -283,6 +284,8 @@ afterAll(async () => {
         [f.company],
       );
       for (const table of [
+        "release_events",
+        "releases",
         "push_deliveries",
         "push_subscriptions",
         "ledger",
@@ -372,6 +375,19 @@ describe("real PostgreSQL application boundaries", () => {
     expect(made.status).toBe(201);
     fixtures.push({ company: made.body.id });
     expect(JSON.stringify(made.body)).not.toContain(input.adminPassword);
+    const initialRoles = await pool.query(
+      "SELECT name,level FROM roles WHERE company_id=$1",
+      [made.body.id],
+    );
+    expect(
+      Object.fromEntries(initialRoles.rows.map((r: any) => [r.name, r.level])),
+    ).toEqual({
+      Administrator: 99,
+      Creator: 10,
+      Approver: 20,
+      Finance: 30,
+      Viewer: 1,
+    });
     const owner = await request("auth/login", "POST", {
       email,
       password: input.adminPassword,
@@ -696,6 +712,518 @@ describe("real PostgreSQL application boundaries", () => {
         if (saved[key] === undefined) delete process.env[key];
         else process.env[key] = saved[key];
     }
+  });
+  it("keeps tenant admins available during company maintenance and holds queued dispatch", async () => {
+    const tenant = await fixture();
+    await login(tenant, "admin");
+    await login(tenant, "creator");
+    await login(tenant, "approver");
+    await login(tenant, "finance");
+    const c = await campaign(tenant);
+    await approve(tenant, c.id);
+    const message = (
+      await pool.query(
+        "SELECT m.id FROM messages m JOIN runs r ON r.id=m.run_id WHERE r.campaign_id=$1",
+        [c.id],
+      )
+    ).rows[0].id;
+    expect(
+      (
+        await request(
+          "governance/maintenance",
+          "PUT",
+          {
+            enabled: true,
+            reason: "Planned schema update",
+            message: "Scheduled maintenance",
+          },
+          tenant.cookies.creator,
+        )
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await request(
+          "governance/maintenance",
+          "PUT",
+          {
+            enabled: true,
+            reason: "Planned schema update",
+            message: "Scheduled maintenance",
+          },
+          tenant.cookies.admin,
+        )
+      ).status,
+    ).toBe(200);
+    try {
+      expect(
+        (await request("bootstrap", "GET", undefined, tenant.cookies.creator))
+          .body.code,
+      ).toBe("COMPANY_MAINTENANCE");
+      const denied = await request("auth/login", "POST", {
+        email: tenant.users.creator.email,
+        password: "TestPassword123!",
+      });
+      expect(denied.status).toBe(503);
+      expect(denied.body.code).toBe("COMPANY_MAINTENANCE");
+      expect(
+        (
+          await request("auth/login", "POST", {
+            email: tenant.users.admin.email,
+            password: "TestPassword123!",
+          })
+        ).status,
+      ).toBe(201);
+      expect(
+        (await request("bootstrap", "GET", undefined, other.cookies.admin))
+          .status,
+      ).toBe(200);
+      const before = (
+        await pool.query("SELECT reserved,spent FROM budgets WHERE id=$1", [
+          tenant.budget,
+        ])
+      ).rows[0];
+      expect(await processMessage(message)).toBe("deferred");
+      expect(
+        (
+          await pool.query("SELECT reserved,spent FROM budgets WHERE id=$1", [
+            tenant.budget,
+          ])
+        ).rows[0],
+      ).toEqual(before);
+      expect(
+        (await request("auth/logout", "POST", {}, tenant.cookies.creator))
+          .status,
+      ).toBe(201);
+    } finally {
+      await request(
+        "governance/maintenance",
+        "PUT",
+        { enabled: false, reason: "Maintenance completed", message: "" },
+        tenant.cookies.admin,
+      );
+    }
+    expect(
+      (
+        await request("auth/login", "POST", {
+          email: tenant.users.creator.email,
+          password: "TestPassword123!",
+        })
+      ).status,
+    ).toBe(201);
+    await processMessage(message);
+    expect(
+      (await pool.query("SELECT status FROM messages WHERE id=$1", [message]))
+        .rows[0].status,
+    ).toBe("DELIVERED");
+  });
+  it("registers immutable tenant release details and records valid status history", async () => {
+    const body = {
+      version: "1.2.3",
+      title: "Governance release",
+      environment: "staging",
+      deployedAt: new Date().toISOString(),
+      status: "PLANNED",
+      items: [
+        { type: "FIX", description: "Fix sidebar position" },
+        {
+          type: "ENHANCEMENT",
+          description: "Add company maintenance",
+          ticket: "UMS-20",
+        },
+      ],
+    };
+    expect(
+      (await request("governance/releases", "POST", body, f.cookies.creator))
+        .status,
+    ).toBe(403);
+    const r = await request(
+      "governance/releases",
+      "POST",
+      body,
+      f.cookies.admin,
+    );
+    expect(r.status).toBe(201);
+    expect(
+      (
+        await request(
+          "governance/releases",
+          "GET",
+          undefined,
+          f.cookies.creator,
+        )
+      ).body.items.some((v: any) => v.id === r.body.id),
+    ).toBe(true);
+    expect(
+      (
+        await request(
+          `governance/releases/${r.body.id}/status`,
+          "POST",
+          {
+            status: "DEPLOYED",
+            expectedStatus: "PLANNED",
+            reason: "Deployment verified",
+          },
+          other.cookies.admin,
+        )
+      ).status,
+    ).toBe(404);
+    expect(
+      (
+        await request(
+          `governance/releases/${r.body.id}/status`,
+          "POST",
+          {
+            status: "DEPLOYED",
+            expectedStatus: "PLANNED",
+            reason: "Deployment verified",
+          },
+          f.cookies.admin,
+        )
+      ).status,
+    ).toBe(201);
+    expect(
+      (
+        await request(
+          `governance/releases/${r.body.id}/status`,
+          "POST",
+          {
+            status: "DEPLOYED",
+            expectedStatus: "PLANNED",
+            reason: "Stale update",
+          },
+          f.cookies.admin,
+        )
+      ).status,
+    ).toBe(409);
+    expect(
+      (
+        await request(
+          `governance/releases/${r.body.id}/status`,
+          "POST",
+          {
+            status: "ROLLED_BACK",
+            expectedStatus: "DEPLOYED",
+            reason: "Operational rollback",
+          },
+          f.cookies.admin,
+        )
+      ).status,
+    ).toBe(201);
+    expect(
+      (
+        await request(
+          `governance/releases/${r.body.id}/status`,
+          "POST",
+          {
+            status: "DEPLOYED",
+            expectedStatus: "ROLLED_BACK",
+            reason: "Invalid reopening",
+          },
+          f.cookies.admin,
+        )
+      ).status,
+    ).toBe(400);
+    const latest = (
+      await request("governance/releases", "GET", undefined, f.cookies.creator)
+    ).body.items.find((v: any) => v.id === r.body.id);
+    expect(latest.items[0].description).toBe(body.items[0].description);
+    expect(latest.history).toHaveLength(3);
+    expect(
+      (
+        await request(
+          "governance/releases",
+          "GET",
+          undefined,
+          other.cookies.admin,
+        )
+      ).body.items.some((v: any) => v.id === r.body.id),
+    ).toBe(false);
+  });
+  it("captures safe field changes with actor correlation and paginates an audit view with a timestamp cutoff", async () => {
+    const tenant = await fixture();
+    await login(tenant, "admin");
+    for (let i = 0; i < 23; i++)
+      expect(
+        (
+          await request(
+            "admin/teams",
+            "POST",
+            { name: `Audit team ${i}` },
+            tenant.cookies.admin,
+          )
+        ).status,
+      ).toBe(201);
+    const path = "audit?action=team.created&module=users&limit=10";
+    const first = await request(path, "GET", undefined, tenant.cookies.admin);
+    expect(first.status).toBe(200);
+    expect(first.body.items).toHaveLength(10);
+    expect(first.body.total).toBe(23);
+    const made = await request(
+      "admin/teams",
+      "POST",
+      { name: "After snapshot" },
+      tenant.cookies.admin,
+    );
+    const second = await request(
+      `${path}&page=2&snapshot=${encodeURIComponent(first.body.snapshot)}`,
+      "GET",
+      undefined,
+      tenant.cookies.admin,
+    );
+    expect(second.body.total).toBe(23);
+    expect(
+      second.body.items.some((v: any) =>
+        first.body.items.some((r: any) => r.id === v.id),
+      ),
+    ).toBe(false);
+    const events = await request(
+      `audit?search=${made.body.id}&source=database&limit=10`,
+      "GET",
+      undefined,
+      tenant.cookies.admin,
+    );
+    expect(events.body.items[0].actor_id).toBe(tenant.users.admin.id);
+    expect(events.body.items[0].detail.changedFields).toContain("name");
+    expect(events.body.items[0].detail.after.name).toBe("After snapshot");
+    const business = await request(
+      `audit?search=${made.body.id}&source=business&limit=10`,
+      "GET",
+      undefined,
+      tenant.cookies.admin,
+    );
+    expect(business.body.items[0].correlation_id).toBe(
+      events.body.items[0].correlation_id,
+    );
+    expect(
+      (await request("audit?limit=25", "GET", undefined, tenant.cookies.admin))
+        .status,
+    ).toBe(400);
+    expect(
+      (
+        await request(
+          "audit?from=2026-12-01&to=2026-01-01",
+          "GET",
+          undefined,
+          tenant.cookies.admin,
+        )
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await request(
+          `audit?search=${made.body.id}`,
+          "GET",
+          undefined,
+          other.cookies.admin,
+        )
+      ).body.items,
+    ).toEqual([]);
+    const source = await request(
+      "sources",
+      "POST",
+      { name: "Audit credential source", type: "INCOMING" },
+      tenant.cookies.admin,
+    );
+    const key = await request(
+      `sources/${source.body.id}/keys`,
+      "POST",
+      {},
+      tenant.cookies.admin,
+    );
+    expect(key.status).toBe(201);
+    const logged = await request(
+      `audit?search=${key.body.id}&source=database`,
+      "GET",
+      undefined,
+      tenant.cookies.admin,
+    );
+    expect(logged.body.items.length).toBeGreaterThan(0);
+    expect(JSON.stringify(logged.body)).not.toContain(key.body.token);
+  });
+  it("scopes budget and ledger audit to the owning team and masks amounts without finance access", async () => {
+    const tenant = await fixture();
+    await login(tenant, "admin");
+    await login(tenant, "creator");
+    await pool.query("UPDATE roles SET permissions=$2 WHERE id=$1", [
+      tenant.roles.creator,
+      JSON.stringify(["campaigns:read", "audit:read"]),
+    ]);
+    const centre = await request(
+      "admin/cost-centres",
+      "POST",
+      { name: "Team B finance", teamId: tenant.teamB },
+      tenant.cookies.admin,
+    );
+    expect(centre.status).toBe(201);
+    const budget = await request(
+      "budgets",
+      "POST",
+      {
+        costCentreId: centre.body.id,
+        startsOn: new Date().toISOString().slice(0, 10),
+        months: 1,
+        amount: "123.4567",
+      },
+      tenant.cookies.admin,
+    );
+    expect(budget.status).toBe(201);
+    const captured = (
+      await pool.query(
+        "SELECT * FROM audit WHERE company_id=$1 AND (resource_id=$2 OR (resource_type='ledger' AND detail->'after'->>'budget_id'=$2))",
+        [tenant.company, budget.body.id],
+      )
+    ).rows;
+    expect(captured.length).toBeGreaterThanOrEqual(3);
+    expect(captured.every((e: any) => e.team_id === tenant.teamB)).toBe(true);
+    const hidden = await request(
+      `audit?search=${budget.body.id}`,
+      "GET",
+      undefined,
+      tenant.cookies.creator,
+    );
+    expect(hidden.body.items).toEqual([]);
+    // Old records tagged with the acting admin's team must also remain hidden.
+    await pool.query("UPDATE audit SET team_id=$2 WHERE resource_id=$1", [
+      budget.body.id,
+      tenant.team,
+    ]);
+    expect(
+      (
+        await request(
+          `audit?search=${budget.body.id}`,
+          "GET",
+          undefined,
+          tenant.cookies.creator,
+        )
+      ).body.items,
+    ).toEqual([]);
+    await request(
+      `budgets/${tenant.budget}/topup`,
+      "POST",
+      { amount: "12.3456", reason: "Audit financial access" },
+      tenant.cookies.admin,
+    );
+    const own = await request(
+      `audit?search=${tenant.budget}`,
+      "GET",
+      undefined,
+      tenant.cookies.creator,
+    );
+    expect(own.body.items.length).toBeGreaterThan(0);
+    const change = own.body.items.find(
+      (e: any) => e.resource_type === "budgets" && e.action === "data.update",
+    );
+    expect(change.detail.after.adjusted).toBe("[redacted]");
+    const semantic = own.body.items.find(
+      (e: any) => e.action === "budget.topup",
+    );
+    expect(semantic.detail.amount).toBe("[redacted]");
+    const finance = await request(
+      `audit?search=${tenant.budget}`,
+      "GET",
+      undefined,
+      tenant.cookies.admin,
+    );
+    expect(
+      finance.body.items.find((e: any) => e.action === "budget.topup").detail
+        .amount,
+    ).toBe("12.3456");
+  });
+  it("stores work identity and role levels without granting implicit privileges or cross-company membership", async () => {
+    const role = await request(
+      "admin/roles",
+      "POST",
+      {
+        name: "Read-only manager",
+        level: 99,
+        permissions: ["campaigns:read"],
+        companyScope: false,
+      },
+      f.cookies.admin,
+    );
+    expect(role.status).toBe(201);
+    expect(role.body.level).toBe(99);
+    const email = `staff-${randomUUID()}@example.test`;
+    const input = {
+      name: "Work identity",
+      email,
+      password: "TestPassword123!",
+      teamId: f.team,
+      roleId: role.body.id,
+      employeeId: `EMP-${randomUUID()}`,
+      department: "Operations",
+      jobTitle: "Analyst",
+      workPhone: "+62 21 555 0100",
+    };
+    const user = await request("admin/users", "POST", input, f.cookies.admin);
+    expect(user.status).toBe(201);
+    const auth = await request("auth/login", "POST", {
+      email,
+      password: input.password,
+    });
+    expect(auth.status).toBe(201);
+    expect(
+      (await request("bootstrap", "GET", undefined, auth.cookie)).body.user
+        .role_level,
+    ).toBe(99);
+    expect(
+      (await request("admin/workspace", "GET", undefined, auth.cookie)).status,
+    ).toBe(403);
+    const current = (
+      await request("admin/workspace", "GET", undefined, f.cookies.admin)
+    ).body;
+    expect(current.company.corporate_id).toMatch(/^UMS-/);
+    expect(
+      current.users.find((u: any) => u.id === user.body.id).employee_id,
+    ).toBe(input.employeeId);
+    expect(
+      (
+        await request(
+          `admin/users/${user.body.id}/details`,
+          "PUT",
+          { ...input, name: "Updated name" },
+          other.cookies.admin,
+        )
+      ).status,
+    ).toBe(404);
+    expect(
+      (
+        await request(
+          "admin/users",
+          "POST",
+          {
+            ...input,
+            email: `wrong-${email}`,
+            employeeId: "OTHER",
+            roleId: other.roles.admin,
+          },
+          f.cookies.admin,
+        )
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await request(
+          `admin/roles/${role.body.id}`,
+          "PUT",
+          {
+            name: "No implicit powers",
+            level: 8,
+            permissions: ["campaigns:read"],
+            companyScope: false,
+          },
+          f.cookies.admin,
+        )
+      ).status,
+    ).toBe(200);
+    expect(
+      (await request("bootstrap", "GET", undefined, auth.cookie)).status,
+    ).toBe(401);
+    expect(
+      (await request("auth/login", "POST", { email, password: input.password }))
+        .status,
+    ).toBe(201);
   });
   it("changes passwords without logging secrets and revokes other sessions", async () => {
     const personal = await fixture();
@@ -1029,7 +1557,7 @@ describe("real PostgreSQL application boundaries", () => {
     );
     expect(audit.status).toBe(200);
     expect(
-      audit.body.some((r: any) => r.action === "budget.topup" && r.ip),
+      audit.body.items.some((r: any) => r.action === "budget.topup" && r.ip),
     ).toBe(true);
   });
   it("pauses and cancels undispatched work without charging or resending it", async () => {
@@ -1669,6 +2197,24 @@ describe("real PostgreSQL application boundaries", () => {
     expect(csv.status).toBe(200);
     expect(csv.headers.get("content-type")).toContain("text/csv");
     expect(await csv.text()).toContain('"\'=1+1"');
+    const dispatchAudit = (
+      await pool.query(
+        "SELECT detail FROM audit WHERE company_id=$1 AND resource_type='message_events' AND resource_id=$2",
+        [f.company, m.id],
+      )
+    ).rows;
+    expect(dispatchAudit.length).toBeGreaterThan(0);
+    expect(
+      dispatchAudit.every(
+        (e: any) =>
+          !e.detail.after.body &&
+          !e.detail.after.recipient &&
+          !e.detail.after.detail,
+      ),
+    ).toBe(true);
+    expect(
+      dispatchAudit.some((e: any) => e.detail.after.status === "DELIVERED"),
+    ).toBe(true);
     const completion = (
       await pool.query("SELECT * FROM notifications WHERE event_key=$1", [
         `run:${m.run_id}:COMPLETED`,
@@ -1693,6 +2239,14 @@ describe("real PostgreSQL application boundaries", () => {
         ])
       ).rows[0].read_by,
     ).toEqual([f.users.creator.id]);
+    expect(
+      (
+        await pool.query(
+          "SELECT 1 FROM audit WHERE company_id=$1 AND resource_id=$2 AND action='notification.read'",
+          [f.company, completion[0].id],
+        )
+      ).rowCount,
+    ).toBe(1);
     expect(
       (
         await request(
@@ -2166,6 +2720,104 @@ describe("UMS operational read APIs", () => {
       isolated.cookies.admin,
     );
     expect(inaccessible.body.totals.total).toBe(0);
+  });
+  it("reports vendor failures and immutable cost-centre attribution with bounded date filters", async () => {
+    const summary = await request(
+      `operations/summary?search=${id}`,
+      "GET",
+      undefined,
+      h.cookies.finance,
+    );
+    expect(summary.status).toBe(200);
+    expect(
+      summary.body.vendors.reduce((n: number, v: any) => n + v.total, 0),
+    ).toBe(3);
+    expect(summary.body.vendors[0]).toHaveProperty("failure_rate");
+    const original = (
+      await pool.query("SELECT definition FROM campaigns WHERE id=$1", [id])
+    ).rows[0].definition;
+    await pool.query(
+      "UPDATE campaigns SET definition=jsonb_set(definition,'{costCentreId}',to_jsonb($2::text)) WHERE id=$1",
+      [id, randomUUID()],
+    );
+    try {
+      const usage = await request(
+        `operations/usage?search=${id}&limit=1&page=1`,
+        "GET",
+        undefined,
+        h.cookies.finance,
+      );
+      expect(usage.status).toBe(200);
+      expect(usage.body.items).toHaveLength(1);
+      expect(usage.body.items[0].cost_centre_id).toBe(h.centre);
+      expect(usage.body.totals.messages).toBe(3);
+      expect(usage.body.totals.reserved_cost).toBe("20.0000");
+      expect(usage.body.totalGroups).toBe(1);
+      expect(usage.body.hasMore).toBe(false);
+      const beyond = await request(
+        `operations/usage?search=${id}&limit=1&page=2`,
+        "GET",
+        undefined,
+        h.cookies.finance,
+      );
+      expect(beyond.body.items).toEqual([]);
+      expect(beyond.body.totals.messages).toBe(3);
+      expect(
+        (
+          await request(
+            `operations/usage?search=${id}&costCentre=${randomUUID()}`,
+            "GET",
+            undefined,
+            h.cookies.finance,
+          )
+        ).body.items,
+      ).toEqual([]);
+      expect(
+        (
+          await request(
+            `operations/usage?search=${id}&from=2000-01-01&to=2000-01-02`,
+            "GET",
+            undefined,
+            h.cookies.finance,
+          )
+        ).body.items,
+      ).toEqual([]);
+      expect(
+        (
+          await request(
+            "operations/summary?from=2026-12-01&to=2026-01-01",
+            "GET",
+            undefined,
+            h.cookies.finance,
+          )
+        ).status,
+      ).toBe(400);
+      expect(
+        (
+          await request(
+            "operations/summary?from=2026-02-31",
+            "GET",
+            undefined,
+            h.cookies.finance,
+          )
+        ).status,
+      ).toBe(400);
+      expect(
+        (
+          await request(
+            `operations/usage?search=${id}`,
+            "GET",
+            undefined,
+            isolated.cookies.admin,
+          )
+        ).body.totals.messages,
+      ).toBe(0);
+    } finally {
+      await pool.query("UPDATE campaigns SET definition=$2 WHERE id=$1", [
+        id,
+        original,
+      ]);
+    }
   });
   it("restricts and audits payload access and hides costs server-side for a viewer", async () => {
     const limited = await request(
