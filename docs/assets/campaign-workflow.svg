@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 760" role="img" aria-labelledby="title description">
+  <title id="title">One UMS Portal: campaign workflow and financial outcomes</title>
+  <desc id="description">A source-based illustration, not a screenshot. A creator prepares a campaign, separate approvers review it, a queue simulates delivery, and Message Explorer shows the outcomes. Delivered messages spend a reservation, failed messages release it, and unconfirmed messages retain it for investigation.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#8b5cf6"/></marker>
+    <style>
+      text{font-family:Arial,Helvetica,sans-serif;fill:#24163f}
+      .eyebrow{font-size:14px;font-weight:700;letter-spacing:2px;fill:#6d28d9}
+      .title{font-size:36px;font-weight:700}
+      .subtitle{font-size:18px;fill:#5d5570}
+      .step{font-size:16px;font-weight:700;fill:#6d28d9}
+      .card-title{font-size:23px;font-weight:700}
+      .body{font-size:17px;fill:#5d5570}
+      .tag{font-size:14px;font-weight:700;fill:#6d28d9}
+      .status{font-size:18px;font-weight:700}
+      .label{font-size:14px;fill:#655c78}
+    </style>
+  </defs>
+  <rect width="1280" height="760" rx="24" fill="#f5f3ff"/>
+  <rect x="40" y="40" width="38" height="38" rx="10" fill="#7c3aed"/>
+  <path d="M50 50H56V68H50ZM62 50H68V68H62Z" fill="white"/>
+  <text x="94" y="65" class="eyebrow">ONE UMS PORTAL · HOW IT WORKS</text>
+  <text x="40" y="127" class="title">From a campaign to a traceable outcome</text>
+  <text x="40" y="160" class="subtitle">Six channels. Sequential approvals. A real queue and ledger with simulated delivery.</text>
+
+  <g>
+    <rect x="40" y="201" width="278" height="228" rx="18" fill="white" stroke="#ddd6fe"/>
+    <text x="62" y="235" class="step">01 · CREATOR</text>
+    <text x="62" y="277" class="card-title">Prepare</text>
+    <text x="62" y="309" class="body">Choose a template and source.</text>
+    <text x="62" y="335" class="body">Map recipients and variables.</text>
+    <text x="62" y="361" class="body">Check preview and schedule.</text>
+    <rect x="62" y="383" width="204" height="26" rx="13" fill="#f3e8ff"/>
+    <text x="76" y="401" class="tag">Frozen on submission</text>
+  </g>
+  <path d="M321 314H344" stroke="#8b5cf6" stroke-width="3" marker-end="url(#arrow)"/>
+  <g>
+    <rect x="348" y="201" width="278" height="228" rx="18" fill="white" stroke="#ddd6fe"/>
+    <text x="370" y="235" class="step">02 · APPROVERS</text>
+    <text x="370" y="277" class="card-title">Review</text>
+    <text x="370" y="309" class="body">Review each configured stage.</text>
+    <text x="370" y="335" class="body">Approve, return or reject.</text>
+    <text x="370" y="361" class="body">Creators cannot self-approve.</text>
+    <rect x="370" y="383" width="212" height="26" rx="13" fill="#f3e8ff"/>
+    <text x="384" y="401" class="tag">Server checks every step</text>
+  </g>
+  <path d="M629 314H652" stroke="#8b5cf6" stroke-width="3" marker-end="url(#arrow)"/>
+  <g>
+    <rect x="656" y="201" width="278" height="228" rx="18" fill="white" stroke="#ddd6fe"/>
+    <text x="678" y="235" class="step">03 · QUEUE + WORKER</text>
+    <text x="678" y="277" class="card-title">Simulate</text>
+    <text x="678" y="309" class="body">Validate and reserve budget.</text>
+    <text x="678" y="335" class="body">Publish through the outbox.</text>
+    <text x="678" y="361" class="body">Record attempts and events.</text>
+    <rect x="678" y="383" width="230" height="26" rx="13" fill="#f3e8ff"/>
+    <text x="692" y="401" class="tag">No external message sends</text>
+  </g>
+  <path d="M937 314H960" stroke="#8b5cf6" stroke-width="3" marker-end="url(#arrow)"/>
+  <g>
+    <rect x="964" y="201" width="276" height="228" rx="18" fill="#6d28d9"/>
+    <text x="986" y="235" style="font-size:16px;font-weight:700;fill:#ede9fe">04 · OPERATIONS + FINANCE</text>
+    <text x="986" y="277" style="font-size:23px;font-weight:700;fill:white">Investigate</text>
+    <text x="986" y="309" style="font-size:17px;fill:#ede9fe">Open Message Explorer.</text>
+    <text x="986" y="335" style="font-size:17px;fill:#ede9fe">Follow the message timeline.</text>
+    <text x="986" y="361" style="font-size:17px;fill:#ede9fe">Compare budget and ledger.</text>
+    <rect x="986" y="383" width="232" height="26" rx="13" fill="#5b21b6"/>
+    <text x="1000" y="401" style="font-size:14px;font-weight:700;fill:white">Investigate before retrying</text>
+  </g>
+
+  <text x="40" y="484" class="eyebrow">WHAT AN OUTCOME MEANS FOR THE RESERVATION</text>
+  <rect x="40" y="509" width="384" height="116" rx="16" fill="#ecfdf5" stroke="#a7f3d0"/>
+  <circle cx="68" cy="541" r="6" fill="#047857"/>
+  <text x="86" y="547" class="status" style="fill:#065f46">DELIVERED → spend</text>
+  <text x="62" y="578" class="body">Confirmed simulated delivery settles cost.</text>
+  <text x="62" y="602" class="label">Internal ledger; not a provider invoice.</text>
+  <rect x="448" y="509" width="384" height="116" rx="16" fill="#fff1f2" stroke="#fecdd3"/>
+  <circle cx="476" cy="541" r="6" fill="#be123c"/>
+  <text x="494" y="547" class="status" style="fill:#9f1239">FAILED → release</text>
+  <text x="470" y="578" class="body">A failed delivery releases reserved cost.</text>
+  <text x="470" y="602" class="label">The failure remains visible in its timeline.</text>
+  <rect x="856" y="509" width="384" height="116" rx="16" fill="#fffbeb" stroke="#fde68a"/>
+  <circle cx="884" cy="541" r="6" fill="#b45309"/>
+  <text x="902" y="547" class="status" style="fill:#92400e">UNKNOWN → retain</text>
+  <text x="878" y="578" class="body">Hold the reservation for investigation.</text>
+  <text x="878" y="602" class="label">No blind resend or assumed success.</text>
+
+  <text x="40" y="679" class="body">Email · SMS · WhatsApp · Slack · Telegram · Push</text>
+  <text x="40" y="715" class="label">Workflow illustration based on source. Not an application screenshot or live delivery evidence.</text>
+  <rect x="1002" y="658" width="238" height="47" rx="12" fill="white" stroke="#ddd6fe"/>
+  <text x="1022" y="688" class="tag">TypeScript · Next.js · NestJS</text>
+</svg>

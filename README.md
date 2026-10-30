@@ -6,6 +6,76 @@ The interface follows a purple enterprise workspace: grouped navigation, light/d
 
 **Default delivery is simulated.** Email, SMS, WhatsApp, Slack, Telegram and Push exercise the real queue and financial ledger without sending external messages. This is an ongoing portfolio project; real provider transport, invoice matching, and visual workflow publication are not implemented yet.
 
+![One UMS Portal workflow: prepare a campaign, review approvals, simulate delivery, investigate outcomes and settle reservations](docs/assets/campaign-workflow.svg)
+
+*Source-based workflow illustration, not an application screenshot. Delivery statuses describe the local simulator.*
+
+[Take the tour](#a-campaign-in-four-steps) · [Run locally](#development-setup) · [Browse screens](#screens) · [Install on a server](#server-installation--instalasi-server) · [Read the boundaries](#boundaries)
+
+## A campaign in four steps
+
+| Step | What you do | What the system records |
+| --- | --- | --- |
+| **1. Prepare** | As creator, select a source, template and channels; map recipients/variables and inspect previews. | Submission freezes the campaign snapshot and approval policy. |
+| **2. Review** | Separate eligible users review each configured approval stage. Return for revision when needed. | Versioned decisions and audit evidence; creators cannot approve their own submissions. |
+| **3. Simulate** | Complete approvals and the budget/dispatch checks for an immediate or scheduled run. | Budget reservation, PostgreSQL outbox, BullMQ jobs, attempts and simulated events. |
+| **4. Investigate** | Follow a message in Message Explorer; compare operations with finance. | Delivered messages spend reserved cost; failures release it; unknown outcomes retain it for investigation. |
+
+The six channels use the same campaign/approval/reporting path. A simulated delivery
+does not prove that a real provider accepted or delivered a message. Reservations,
+internal spending estimates and provider invoices remain separate concepts.
+
+<details>
+<summary><strong>Try it yourself: a local demo with separate roles</strong></summary>
+
+After [development setup](#development-setup), use the synthetic demo company:
+
+1. Sign in as `creator@demo.local`. Choose a seeded template/source, check the
+   recipient mapping and preview, then submit a small immediate campaign.
+2. Sign out and sign in as `approver@demo.local` to review the first stage. Inspect
+   the frozen submission before approving it.
+3. Sign in as `finance@demo.local` for the second stage. Final approval runs budget
+   and dispatch preflight checks; services must stay running for queue processing.
+4. Open **Message Explorer** to inspect the message timeline, then **Cost allocation**
+   (`/finance/allocation`) and **Usage & costs** (`/finance/usage`) to compare
+   reservations and spending.
+5. Find a seeded **UNKNOWN** outcome. It stays unconfirmed and retains its reservation
+   until explicitly investigated; the system does not blindly send it again.
+
+Initial demo password: `LocalDemo123!`, unless `DEMO_PASSWORD` was set before the
+first seed. These are synthetic local accounts; never seed them into a real tenant
+database. Sign-in shortcuts are optional and require
+`NEXT_PUBLIC_DEMO_ACCOUNTS=true` at web build time; normal sign-in works without them.
+
+</details>
+
+<details>
+<summary><strong>Under the hood: browser, API, queue and ledger</strong></summary>
+
+```mermaid
+flowchart LR
+    Browser[Browser] --> Web[Next.js UI and API proxy]
+    Web --> API[NestJS API]
+    API -->|Permissions, approvals and transactions| DB[(PostgreSQL)]
+    API -.->|Embeds worker in local default| Worker[Delivery worker and simulator]
+    Worker -->|Read pending outbox| DB
+    Worker -->|Publish jobs| Queue[(Redis and BullMQ)]
+    Queue -->|Process jobs| Worker
+    Worker -->|Attempts, events and ledger| DB
+```
+
+PostgreSQL holds authoritative campaign, approval, budget, outbox and audit records.
+Redis/BullMQ processes delivery jobs. The simulator records outcomes and updates the
+internal ledger; real provider transport remains unfinished. The default local API
+starts the workers; the server guides also support a separate worker process.
+
+Trace this diagram in the [frontend proxy](apps/web/app/api/%5B...path%5D/route.ts),
+[API startup](apps/api/src/main.ts), [campaign approvals/reservations](apps/api/src/campaigns.ts),
+[outbox and delivery worker](apps/api/src/queue.ts), and
+[standalone worker entry point](apps/api/src/worker.ts).
+
+</details>
+
 ## Features
 
 - Company/team isolation and server permissions, cookie sessions, password changes, audit records, profile pictures.
@@ -27,7 +97,7 @@ The interface follows a purple enterprise workspace: grouped navigation, light/d
 - Accounts include a sender, optional per-channel sender IDs, From/reply-to, workspace/app/WABA/phone-number IDs and encrypted API/bot/webhook/custom credentials. Partial credential rotation retains other keys; clearing is explicit. Saved secrets are never returned by list APIs. Generic HTTP transport remains disabled until a verified vendor adapter is implemented.
 - Rate cards are per account/channel and effective date, with recognized ISO currencies and an explicit FX-to-IDR value for non-IDR quotes. The immutable rate ID/FX identifies the quote used; budget reservations/spending remain IDR. This is not an automatic FX feed or vendor invoice matching.
 
-For this demonstration, login shortcuts list creator/approver/finance/admin/viewer for two seeded demo companies. To enable them in a portfolio build, set `NEXT_PUBLIC_DEMO_ACCOUNTS=true` in `apps/web/.env.local` or the web build environment, then rebuild/restart. This workstation is configured accordingly. Deployment builds remain opt-in and bootstrap never creates demonstration users automatically. `pnpm demo:examples` adds idempotent synthetic examples with0/1/2/3 parameters to existing demo companies; `pnpm db:setup` includes them on development setup. Do not run demonstration seeding on a real tenant database.
+For this demonstration, login shortcuts list creator/approver/finance/admin/viewer for two seeded demo companies. To enable them in a portfolio build, set `NEXT_PUBLIC_DEMO_ACCOUNTS=true` in `apps/web/.env.local` or the web build environment, then rebuild/restart. Deployment builds remain opt-in and bootstrap never creates demonstration users automatically. `pnpm demo:examples` adds idempotent synthetic examples with 0/1/2/3 parameters to existing demo companies; `pnpm db:setup` includes them on development setup. Do not run demonstration seeding on a real tenant database.
 
 [Scope and remaining boundaries](docs/campaign-integrations-plan.md) · [Verification evidence](docs/campaign-integrations-verification.md)
 
@@ -51,7 +121,7 @@ For this demonstration, login shortcuts list creator/approver/finance/admin/view
 
 The same source runs on a workstation or a server. Deployment examples include an API, independent worker, frontend and persistent PostgreSQL/Redis. Secrets and the public origin are configured at runtime. `db:migrate` upgrades schema without seeding demonstrations; `db:bootstrap` creates the first platform operator. See the guides before running these on a server.
 
-New in this increment: role-separated **Companies** onboarding, saved account language, accessible dropdowns, a searchable **Help** page and opt-in **Device notifications**. Push is disabled until an operator configures VAPID/HTTPS. It covers operational team notifications; customer push campaigns are a future extension.
+New in this increment: role-separated **Companies** onboarding, saved account language, accessible dropdowns, a searchable **Help** page and opt-in **Device notifications**. Device notifications are disabled until an operator configures VAPID/HTTPS. They cover operational team notifications; customer Push campaigns currently use the simulator.
 
 ## Development setup
 
